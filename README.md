@@ -38,7 +38,7 @@ This is part of a two-component system:
 Requires [Deno 2.x](https://deno.com/):
 
 ```bash
-git clone https://github.com/yourusername/mcp-rpc-runtime
+git clone https://github.com/jx-codes/mcp-rpc-runtime
 cd mcp-rpc-runtime
 ```
 
@@ -300,13 +300,6 @@ test-rpc/                           # Example RPC functions
 ├── pokemon.ts                      # Complex Pokemon API integration
 └── hello.ts                        # Simple greeting
 ```
-
-### Clean Architecture
-
-- **Domain Logic**: RPC execution and type system (`src/lib/rpc/`, `src/lib/type_system/`)
-- **Infrastructure**: WebSocket server and file system (`src/lib/`)
-- **Configuration**: Environment and CLI args (`src/lib/get_config.ts`)
-- **Application**: Bootstrap and coordination (`src/main.ts`)
 
 ## Troubleshooting
 
