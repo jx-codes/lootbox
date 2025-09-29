@@ -1,6 +1,6 @@
 # MCP RPC Runtime
 
-A TypeScript WebSocket RPC server that enables LLMs to execute code instead of using traditional tool calling. This project implements the "Code Mode" approach inspired by [Cloudflare's innovative MCP research](./cloudflare_article.md), where LLMs write TypeScript code to call APIs rather than using direct tool invocation.
+A TypeScript WebSocket RPC server that enables LLMs to execute code instead of using traditional tool calling. This project implements the "Code Mode" approach inspired by Cloudflare's innovative MCP research, where LLMs write TypeScript code to call APIs rather than using direct tool invocation.
 
 ## Why Code Mode?
 
@@ -16,16 +16,19 @@ Traditional MCP implementations require LLMs to use special tool-calling tokens 
 This is part of a two-component system:
 
 ```
-┌─────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ MCP Client  │◄──►│  mcp-rpc-bridge │◄──►│ mcp-rpc-runtime │
-│ (Claude)    │    │  (MCP Server)   │    │ (This Project)  │
-└─────────────┘    └─────────────────┘    └─────────────────┘
-                           │                       │
-                           │                       ▼
-                           │               ┌───────────────┐
-                           └──────────────►│ TypeScript    │
-                                           │ RPC Functions │
-                                           └───────────────┘
+┌─────────────┐          ┌─────────────────┐          ┌─────────────────┐
+│ MCP Client  │◄────────►│  mcp-rpc-bridge │◄────────►│ mcp-rpc-runtime │
+│ (Claude)    │   MCP    │  (MCP Server)   │    WS    │ (This Project)  │
+└─────────────┘          └─────────────────┘          └─────────────────┘
+                                                                │
+                                                                │ loads &
+                                                                │ executes
+                                                                ▼
+                                                       ┌─────────────────┐
+                                                       │ TypeScript RPC  │
+                                                       │ Functions       │
+                                                       │ (--rpc-dir)     │
+                                                       └─────────────────┘
 ```
 
 - **mcp-rpc-runtime** (this project): WebSocket RPC server with auto-discovery and type generation
@@ -270,7 +273,7 @@ deno task compile    # Compile to standalone binary
 
 ### Performance
 
-- **WebSocket Connections**: Auto-disconnect after 100ms inactivity
+- **Generated Client**: Auto-disconnects after 100ms of inactivity (no active RPC calls)
 - **Type Generation**: On-demand via HTTP endpoints
 - **File Watching**: Debounced file system events (100ms)
 - **Script Execution**: 10-second timeout, isolated processes
@@ -337,7 +340,7 @@ curl http://localhost:8080/client.ts > client.ts
 
 This project implements ideas from:
 
-- [Cloudflare's "Code Mode: the better way to use MCP"](./cloudflare_article.md)
+- Cloudflare's "Code Mode: the better way to use MCP"
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
 - Dynamic Worker loading and V8 isolates for sandboxing
 

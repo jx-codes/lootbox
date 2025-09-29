@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "codemode": {
+      "command": "mcp-rpc-bridge",
+      "args": []
+    }
+  }
+}
