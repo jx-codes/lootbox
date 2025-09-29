@@ -13,4 +13,6 @@ npm/
 .env
 
 rpc-server
+mcp-rpc-runtime
+mcp-rpc-runtime.exe
 .claude
