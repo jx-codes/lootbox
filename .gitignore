@@ -1,0 +1,16 @@
+# Deno cache
+/cache/
+__cache__/
+deno_dir/
+
+# Logs
+*.log
+
+# Dependency directories
+node_modules/
+npm/
+
+.env
+
+rpc-server
+.claude
