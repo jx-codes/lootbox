@@ -198,9 +198,21 @@ class SimpleRpcClient {
   private pendingCalls = new Map<string, { resolve: (value: unknown) => void; reject: (error: Error) => void; timeout: number }>();
   private callId = 0;
   private connected = false;
+  private connectionPromise?: Promise<void>;
 
   async connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    // Already connected with valid WebSocket
+    if (this.connected && this.ws?.readyState === WebSocket.OPEN) {
+      return;
+    }
+
+    // Connection in progress - return existing promise
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    // Create new connection attempt
+    this.connectionPromise = new Promise<void>((resolve, reject) => {
       this.ws = new WebSocket("${options.websocketUrl}");
 
       this.ws.onopen = () => {
@@ -209,6 +221,7 @@ class SimpleRpcClient {
       };
 
       this.ws.onerror = () => {
+        this.connected = false;
         reject(new Error("WebSocket connection failed"));
       };
 
@@ -235,11 +248,21 @@ class SimpleRpcClient {
           console.error("Failed to parse response:", error);
         }
       };
+
+      this.ws.onclose = () => {
+        this.connected = false;
+      };
+    }).finally(() => {
+      // Clear connection promise after completion or failure
+      this.connectionPromise = undefined;
     });
+
+    return this.connectionPromise;
   }
 
   async call(method: string, args: unknown): Promise<unknown> {
-    if (!this.connected) {
+    // Ensure connection is established
+    if (!this.connected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
       await this.connect();
     }
 

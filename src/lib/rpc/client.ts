@@ -18,6 +18,7 @@ export class RpcClient {
   >();
   private callId = 0;
   private config: Required<RpcClientConfig>;
+  private connectionPromise?: Promise<void>;
 
   constructor(config: RpcClientConfig = {}) {
     this.config = {
@@ -28,7 +29,18 @@ export class RpcClient {
   }
 
   async connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    // Already connected with valid WebSocket
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return;
+    }
+
+    // Connection in progress - return existing promise
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    // Create new connection attempt
+    this.connectionPromise = new Promise<void>((resolve, reject) => {
       this.ws = new WebSocket(this.config.url);
 
       this.ws.onopen = () => resolve();
@@ -63,7 +75,12 @@ export class RpcClient {
           setTimeout(() => this.connect(), 1000);
         }
       };
+    }).finally(() => {
+      // Clear connection promise after completion or failure
+      this.connectionPromise = undefined;
     });
+
+    return this.connectionPromise;
   }
 
   async call(method: string, args: unknown[] = []): Promise<unknown> {
