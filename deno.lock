@@ -3,6 +3,8 @@
   "specifiers": {
     "jsr:@hono/hono@^4.9.9": "4.9.9",
     "jsr:@std/cli@1": "1.0.22",
+    "jsr:@std/internal@^1.0.10": "1.0.10",
+    "jsr:@std/path@*": "1.1.2",
     "npm:@modelcontextprotocol/sdk@*": "1.8.0_express@5.0.1_zod@3.25.67",
     "npm:@modelcontextprotocol/sdk@1": "1.8.0_express@5.0.1_zod@3.25.67",
     "npm:@types/node@*": "24.2.0",
@@ -15,6 +17,15 @@
     },
     "@std/cli@1.0.22": {
       "integrity": "50d1e4f87887cb8a8afa29b88505ab5081188f5cad3985460c3b471fa49ff21a"
+    },
+    "@std/internal@1.0.10": {
+      "integrity": "e3be62ce42cab0e177c27698e5d9800122f67b766a0bea6ca4867886cbde8cf7"
+    },
+    "@std/path@1.1.2": {
+      "integrity": "c0b13b97dfe06546d5e16bf3966b1cadf92e1cc83e56ba5476ad8b498d9e3038",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
     }
   },
   "npm": {

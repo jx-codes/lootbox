@@ -1,4 +1,7 @@
+import { saveScriptRun } from "./script_history.ts";
+
 export const execute_llm_script = async (script: string) => {
+  const startTime = Date.now();
   console.error("🔧 execute_llm_script: Starting execution");
 
   // Fetch the generated client and inject it into the script - need to get current server port
@@ -13,9 +16,20 @@ export const execute_llm_script = async (script: string) => {
     console.error(
       `❌ Failed to fetch client: ${clientResponse.status} ${clientResponse.statusText}`
     );
+    const error = `Failed to fetch client code: ${clientResponse.status}`;
+
+    // Save failed run (client fetch failure)
+    await saveScriptRun({
+      timestamp: startTime,
+      script,
+      success: false,
+      error,
+      durationMs: Date.now() - startTime,
+    });
+
     return {
       success: false,
-      error: `Failed to fetch client code: ${clientResponse.status}`,
+      error,
     };
   }
 
@@ -53,13 +67,36 @@ export const execute_llm_script = async (script: string) => {
     // Clean up temp file
     await Deno.remove(tempFile).catch(() => {});
 
+    const durationMs = Date.now() - startTime;
+
     if (!success) {
+      const error = errStr || "Script execution failed";
+
+      // Save failed run
+      await saveScriptRun({
+        timestamp: startTime,
+        script,
+        success: false,
+        error,
+        output: outStr,
+        durationMs,
+      });
+
       return {
         success: false,
-        error: errStr || "Script execution failed",
+        error,
         output: outStr,
       };
     }
+
+    // Save successful run
+    await saveScriptRun({
+      timestamp: startTime,
+      script,
+      success: true,
+      output: outStr,
+      durationMs,
+    });
 
     return {
       success: true,
@@ -70,16 +107,40 @@ export const execute_llm_script = async (script: string) => {
     // Clean up temp file
     await Deno.remove(tempFile).catch(() => {});
 
+    const durationMs = Date.now() - startTime;
+
     if (error instanceof Error && error.name === "AbortError") {
+      const errorMsg = "Script execution timeout (10 seconds)";
+
+      // Save timeout run
+      await saveScriptRun({
+        timestamp: startTime,
+        script,
+        success: false,
+        error: errorMsg,
+        durationMs,
+      });
+
       return {
         success: false,
-        error: "Script execution timeout (10 seconds)",
+        error: errorMsg,
       };
     }
 
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    // Save error run
+    await saveScriptRun({
+      timestamp: startTime,
+      script,
+      success: false,
+      error: errorMsg,
+      durationMs,
+    });
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMsg,
     };
   }
 };
