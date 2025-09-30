@@ -108,7 +108,7 @@ export class McpSchemaFetcher {
         name: resource.name,
         description: resource.description,
         uri: resource.uri,
-        uriTemplate: resource.uriTemplate,
+        uriTemplate: resource.uriTemplate as string | undefined,
         mimeType: resource.mimeType,
       }));
     } catch (error) {

@@ -38,7 +38,7 @@ export async function executeMcpTool(
 
     // Execute with timeout
     const result = await executeWithTimeout(
-      client.callTool({ name: toolName, arguments: args }),
+      client.callTool({ name: toolName, arguments: args as Record<string, unknown> | undefined }),
       30000,
       `Tool call ${serverName}.${toolName} timed out after 30 seconds`
     );
