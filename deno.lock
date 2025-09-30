@@ -4,6 +4,7 @@
     "jsr:@hono/hono@^4.9.9": "4.9.9",
     "jsr:@std/cli@1": "1.0.22",
     "npm:@modelcontextprotocol/sdk@*": "1.8.0_express@5.0.1_zod@3.25.67",
+    "npm:@modelcontextprotocol/sdk@1": "1.8.0_express@5.0.1_zod@3.25.67",
     "npm:@types/node@*": "24.2.0",
     "npm:ts-morph@23": "23.0.0",
     "npm:zod@^4.1.11": "4.1.11"
@@ -1465,6 +1466,7 @@
     "dependencies": [
       "jsr:@hono/hono@^4.9.9",
       "jsr:@std/cli@1",
+      "npm:@modelcontextprotocol/sdk@1",
       "npm:ts-morph@23",
       "npm:zod@^4.1.11"
     ]

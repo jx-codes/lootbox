@@ -3,14 +3,16 @@ import { parseArgs } from "@std/cli";
 interface ResolvedConfig {
   rpc_dir: string;
   port: number;
+  mcp_config: string | null;
 }
 
 export const get_config = (): ResolvedConfig => {
   const args = parseArgs(Deno.args, {
-    string: ["rpc-dir", "port"],
+    string: ["rpc-dir", "port", "mcp-config"],
     alias: {
       "rpc-dir": "r",
       "port": "p",
+      "mcp-config": "m",
     },
   });
 
@@ -34,8 +36,26 @@ export const get_config = (): ResolvedConfig => {
     Deno.exit(1);
   }
 
+  // MCP config is optional
+  let mcpConfigPath: string | null = null;
+  if (args["mcp-config"]) {
+    mcpConfigPath = args["mcp-config"] as string;
+    // Verify file exists if provided
+    try {
+      const stat = Deno.statSync(mcpConfigPath);
+      if (!stat.isFile) {
+        console.error(`Error: --mcp-config path is not a file: ${mcpConfigPath}`);
+        Deno.exit(1);
+      }
+    } catch {
+      console.error(`Error: --mcp-config file not found: ${mcpConfigPath}`);
+      Deno.exit(1);
+    }
+  }
+
   return {
     rpc_dir: args["rpc-dir"] as string,
     port: port,
+    mcp_config: mcpConfigPath,
   };
 };

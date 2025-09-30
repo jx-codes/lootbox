@@ -18,6 +18,7 @@ import type {
   InterfaceProperty,
   Parameter,
 } from "./types.ts";
+import { DocumentationExtractor } from "./documentation_extractor.ts";
 
 export interface TypeExtractorConfig {
   useInMemoryFileSystem?: boolean;
@@ -27,6 +28,7 @@ export interface TypeExtractorConfig {
 export class TypeExtractor {
   private project: Project;
   private config: Required<TypeExtractorConfig>;
+  private docExtractor: DocumentationExtractor;
 
   constructor(config: TypeExtractorConfig = {}) {
     this.config = {
@@ -44,26 +46,35 @@ export class TypeExtractor {
         emitDeclarationOnly: false,
       },
     });
+
+    this.docExtractor = new DocumentationExtractor();
   }
 
   /**
    * Extract types from source code (useful for testing)
    */
-  extractFromSource(sourceCode: string, fileName = "temp.ts"): ExtractionResult {
+  extractFromSource(
+    sourceCode: string,
+    fileName = "temp.ts"
+  ): ExtractionResult {
     try {
-      const sourceFile = this.project.createSourceFile(fileName, sourceCode, { overwrite: true });
+      const sourceFile = this.project.createSourceFile(fileName, sourceCode, {
+        overwrite: true,
+      });
       return this.processSourceFile(sourceFile);
     } catch (error) {
       return {
         functions: [],
         interfaces: [],
-        errors: [{
-          file: fileName,
-          message: `Failed to parse source: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-          severity: "error",
-        }],
+        errors: [
+          {
+            file: fileName,
+            message: `Failed to parse source: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            severity: "error",
+          },
+        ],
         sourceFile: fileName,
       };
     }
@@ -80,11 +91,15 @@ export class TypeExtractor {
       return {
         functions: [],
         interfaces: [],
-        errors: [{
-          file: filePath,
-          message: `Failed to load file: ${error instanceof Error ? error.message : String(error)}`,
-          severity: "error",
-        }],
+        errors: [
+          {
+            file: filePath,
+            message: `Failed to load file: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            severity: "error",
+          },
+        ],
         sourceFile: filePath,
       };
     }
@@ -100,27 +115,29 @@ export class TypeExtractor {
 
     try {
       // Extract exported functions
-      sourceFile.getExportedDeclarations().forEach((declarations: Node[], name: string) => {
-        declarations.forEach((declaration: Node) => {
-          try {
-            if (Node.isFunctionDeclaration(declaration)) {
-              const signature = this.extractFunctionSignature(declaration);
-              if (signature) {
-                functions.push(signature);
+      sourceFile
+        .getExportedDeclarations()
+        .forEach((declarations: Node[], name: string) => {
+          declarations.forEach((declaration: Node) => {
+            try {
+              if (Node.isFunctionDeclaration(declaration)) {
+                const signature = this.extractFunctionSignature(declaration);
+                if (signature) {
+                  functions.push(signature);
+                }
               }
+            } catch (error) {
+              errors.push({
+                file: sourceFile.getFilePath(),
+                line: declaration.getStartLineNumber(),
+                message: `Failed to extract ${name}: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+                severity: "warning",
+              });
             }
-          } catch (error) {
-            errors.push({
-              file: sourceFile.getFilePath(),
-              line: declaration.getStartLineNumber(),
-              message: `Failed to extract ${name}: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-              severity: "warning",
-            });
-          }
+          });
         });
-      });
 
       // Extract ALL interfaces (exported and non-exported) since they may be referenced by exported functions
       sourceFile.getInterfaces().forEach((interfaceDeclaration) => {
@@ -168,26 +185,32 @@ export class TypeExtractor {
   /**
    * Extract function signature information
    */
-  private extractFunctionSignature(func: FunctionDeclaration): FunctionSignature | null {
+  private extractFunctionSignature(
+    func: FunctionDeclaration
+  ): FunctionSignature | null {
     const name = func.getName();
     if (!name) {
       return null; // Skip anonymous functions
     }
 
     try {
-      const parameters = func.getParameters().map((param) => this.extractParameter(param));
+      const parameters = func
+        .getParameters()
+        .map((param) => this.extractParameter(param));
 
       // Validate RPC function signature: must have exactly one parameter named 'args'
       this.validateRpcFunctionSignature(func, parameters);
 
       const returnType = this.extractReturnType(func);
       const isAsync = func.isAsync();
+      const documentation = this.docExtractor.extractFunctionDocumentation(func);
 
       return {
         name,
         parameters,
         returnType,
         isAsync,
+        documentation,
         sourceLocation: {
           line: func.getStartLineNumber(),
           file: func.getSourceFile().getFilePath(),
@@ -213,17 +236,17 @@ export class TypeExtractor {
     if (parameters.length !== 1) {
       throw new Error(
         `RPC function '${funcName}' in ${filePath}:${func.getStartLineNumber()} must have exactly one parameter named 'args'. ` +
-        `Found ${parameters.length} parameters. Required signature: ${funcName}(args: T)`
+          `Found ${parameters.length} parameters. Required signature: ${funcName}(args: T)`
       );
     }
 
     const param = parameters[0];
 
     // Parameter must be named 'args'
-    if (param.name !== 'args') {
+    if (param.name !== "args") {
       throw new Error(
         `RPC function '${funcName}' in ${filePath}:${func.getStartLineNumber()} parameter must be named 'args'. ` +
-        `Found parameter name: '${param.name}'. Required signature: ${funcName}(args: T)`
+          `Found parameter name: '${param.name}'. Required signature: ${funcName}(args: T)`
       );
     }
   }
@@ -285,7 +308,10 @@ export class TypeExtractor {
       // Clean up common type patterns
       return this.cleanTypeText(typeText);
     } catch (error) {
-      console.error(`Failed to get parameter type for ${param.getName()}:`, error);
+      console.error(
+        `Failed to get parameter type for ${param.getName()}:`,
+        error
+      );
       return "unknown";
     }
   }
@@ -307,7 +333,10 @@ export class TypeExtractor {
 
       return this.cleanTypeText(typeText);
     } catch (error) {
-      console.error(`Failed to extract return type for ${func.getName()}:`, error);
+      console.error(
+        `Failed to extract return type for ${func.getName()}:`,
+        error
+      );
       return "unknown";
     }
   }
@@ -315,24 +344,31 @@ export class TypeExtractor {
   /**
    * Extract interface definition
    */
-  private extractInterface(iface: InterfaceDeclaration): InterfaceDefinition | null {
+  private extractInterface(
+    iface: InterfaceDeclaration
+  ): InterfaceDefinition | null {
     try {
       const name = iface.getName();
+      const documentation = this.docExtractor.extractInterfaceDocumentation(iface);
+
       const properties = iface.getProperties().map((prop) => {
         const propName = prop.getName();
         const propType = prop.getTypeNode()?.getText() || "unknown";
         const isOptional = prop.hasQuestionToken();
+        const propDoc = this.docExtractor.extractPropertyDocumentation(prop);
 
         return {
           name: propName,
           type: propType,
           isOptional,
+          documentation: propDoc,
         } as InterfaceProperty;
       });
 
       return {
         name,
         properties,
+        documentation,
         sourceLocation: {
           line: iface.getStartLineNumber(),
           file: iface.getSourceFile().getFilePath(),

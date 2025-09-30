@@ -5,6 +5,11 @@ import { upgradeWebSocket } from "@hono/hono/deno";
 import { execute_llm_script } from "../execute_llm_script.ts";
 import { execute_rpc } from "./execute_rpc.ts";
 import { discover_rpc_files, type RpcFile } from "./load_rpc_files.ts";
+import { McpClientManager } from "../external-mcps/mcp_client_manager.ts";
+import { McpSchemaFetcher } from "../external-mcps/mcp_schema_fetcher.ts";
+import { executeMcpTool, executeMcpResource } from "./execute_mcp.ts";
+import { convertMcpSchemasToExtractionResults } from "../external-mcps/parse_mcp_schemas.ts";
+import type { McpConfigFile } from "../external-mcps/mcp_config.ts";
 
 // Type for Hono WebSocket context
 interface WebSocketContext {
@@ -34,6 +39,10 @@ export class WebSocketRpcServer {
   private rpcFiles = new Map<string, RpcFile>();
   private connectedClients = new Set<WebSocketContext>();
   private fileWatcher?: Deno.FsWatcher;
+  private mcpState: {
+    clientManager: McpClientManager;
+    schemaFetcher: McpSchemaFetcher;
+  } | null = null;
 
   constructor() {
     this.setupRoutes();
@@ -109,24 +118,40 @@ export class WebSocketRpcServer {
                 response.error = result.error;
               }
             } else {
-              // Handle as RPC call
+              // Handle as RPC or MCP call
               const msg: RpcMessage = parsed;
-              const rpcFile = this.rpcFiles.get(msg.method);
-              if (!rpcFile) {
-                response.error = `Unknown method: ${msg.method}`;
-              } else {
-                // Extract original function name from namespaced method (e.g., "pokemon.fetchPokemon" -> "fetchPokemon")
-                const functionName = msg.method.includes('.') ? msg.method.split('.')[1] : msg.method;
-                const result = await execute_rpc({
-                  file: rpcFile.path,
-                  functionName: functionName,
-                  params: msg.args || {},
-                });
 
-                if (result.success) {
-                  response.result = result.data;
+              // Check if this is an MCP call (starts with mcp_)
+              if (msg.method.startsWith('mcp_')) {
+                if (!this.mcpState) {
+                  response.error = 'MCP is not enabled on this server';
                 } else {
-                  response.error = result.error;
+                  const result = await this.handleMcpCall(msg.method, msg.args);
+                  if (result.success) {
+                    response.result = result.data;
+                  } else {
+                    response.error = result.error;
+                  }
+                }
+              } else {
+                // Handle as regular RPC call
+                const rpcFile = this.rpcFiles.get(msg.method);
+                if (!rpcFile) {
+                  response.error = `Unknown method: ${msg.method}`;
+                } else {
+                  // Extract original function name from namespaced method (e.g., "pokemon.fetchPokemon" -> "fetchPokemon")
+                  const functionName = msg.method.includes('.') ? msg.method.split('.')[1] : msg.method;
+                  const result = await execute_rpc({
+                    file: rpcFile.path,
+                    functionName: functionName,
+                    params: msg.args || {},
+                  });
+
+                  if (result.success) {
+                    response.result = result.data;
+                  } else {
+                    response.error = result.error;
+                  }
                 }
               }
             }
@@ -234,17 +259,39 @@ export class WebSocketRpcServer {
     }
   }
 
-  async start(port: number): Promise<void> {
+  async start(port: number, mcpConfig: McpConfigFile | null): Promise<void> {
     // Initial load of RPC files
     await this.refreshRpcFiles();
+
+    // Initialize MCP if config provided
+    if (mcpConfig) {
+      console.error("Initializing MCP integration...");
+      const clientManager = new McpClientManager();
+      await clientManager.initializeClients(mcpConfig.mcpServers);
+
+      const schemaFetcher = new McpSchemaFetcher();
+      for (const serverName of clientManager.getConnectedServerNames()) {
+        const client = clientManager.getClient(serverName);
+        if (client) {
+          await schemaFetcher.fetchSchemas(client, serverName);
+        }
+      }
+
+      this.mcpState = { clientManager, schemaFetcher };
+      console.error("MCP integration initialized successfully");
+    }
 
     // Start file watcher for continuous monitoring
     await this.startFileWatcher();
 
     console.error(`Starting RPC server on port ${port}`);
     console.error(
-      `Available functions: ${Array.from(this.rpcFiles.keys()).join(", ")}`
+      `Available RPC functions: ${Array.from(this.rpcFiles.keys()).join(", ")}`
     );
+    if (this.mcpState) {
+      const mcpServers = this.mcpState.clientManager.getConnectedServerNames();
+      console.error(`Connected MCP servers: ${mcpServers.join(", ")}`);
+    }
 
     Deno.serve({ port }, this.app.fetch);
   }
@@ -262,13 +309,76 @@ export class WebSocketRpcServer {
     }
     this.connectedClients.clear();
 
+    // Disconnect MCP clients
+    if (this.mcpState) {
+      await this.mcpState.clientManager.disconnectAll();
+      this.mcpState = null;
+    }
+
     // Note: Deno.watchFs doesn't have a direct close method,
     // but the async iterator will be garbage collected
     this.fileWatcher = undefined;
   }
 
+  /**
+   * Handle MCP tool or resource call
+   */
+  private async handleMcpCall(
+    method: string,
+    args: unknown
+  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    if (!this.mcpState) {
+      return {
+        success: false,
+        error: "MCP is not initialized",
+      };
+    }
+
+    // Parse method: mcp_ServerName.operationName
+    const parts = method.split(".");
+    if (parts.length !== 2) {
+      return {
+        success: false,
+        error: `Invalid MCP method format: ${method}`,
+      };
+    }
+
+    const serverNameWithPrefix = parts[0]; // mcp_ServerName
+    const operationName = parts[1];
+
+    // Remove mcp_ prefix to get actual server name
+    if (!serverNameWithPrefix.startsWith("mcp_")) {
+      return {
+        success: false,
+        error: `Invalid MCP method format: ${method}`,
+      };
+    }
+
+    const serverName = serverNameWithPrefix.substring(4); // Remove "mcp_"
+
+    // Check if it's a resource call (starts with resource_)
+    if (operationName.startsWith("resource_")) {
+      const resourceName = operationName.substring(9); // Remove "resource_"
+      return await executeMcpResource(
+        this.mcpState.clientManager,
+        this.mcpState.schemaFetcher,
+        serverName,
+        resourceName,
+        args
+      );
+    } else {
+      // It's a tool call
+      return await executeMcpTool(
+        this.mcpState.clientManager,
+        serverName,
+        operationName,
+        args
+      );
+    }
+  }
+
   private async generateTypes(): Promise<string> {
-    if (this.rpcFiles.size === 0) {
+    if (this.rpcFiles.size === 0 && !this.mcpState) {
       return "// No RPC files found";
     }
 
@@ -285,19 +395,31 @@ export class WebSocketRpcServer {
 
     const extractor = new TypeExtractor();
     const generator = new ClientGenerator();
-    const extractionResults = [];
+    const rpcExtractionResults = [];
 
     for (const file of uniqueFiles.values()) {
       try {
         console.error(`Extracting types from: ${file.name}`);
         const result = extractor.extractFromFile(file.path);
-        extractionResults.push(result);
+        rpcExtractionResults.push(result);
       } catch (err) {
         console.error(`Error extracting types from ${file.name}:`, err);
       }
     }
 
-    return generator.generateTypesOnly(extractionResults);
+    // Add MCP types if MCP is enabled
+    if (this.mcpState) {
+      const mcpSchemas = this.mcpState.schemaFetcher.getAllSchemas();
+      const mcpExtractionResults = convertMcpSchemasToExtractionResults(
+        mcpSchemas
+      );
+      return generator.generateTypesOnlyWithMcp(
+        rpcExtractionResults,
+        mcpExtractionResults
+      );
+    }
+
+    return generator.generateTypesOnly(rpcExtractionResults);
   }
 
   private async generateClientCode(): Promise<string> {
@@ -317,12 +439,12 @@ export class WebSocketRpcServer {
 
     const extractor = new TypeExtractor();
     const generator = new ClientGenerator();
-    const extractionResults = [];
+    const rpcExtractionResults = [];
 
     for (const file of uniqueFiles.values()) {
       try {
         const result = extractor.extractFromFile(file.path);
-        extractionResults.push(result);
+        rpcExtractionResults.push(result);
       } catch (err) {
         console.error(
           `Error extracting types for client from ${file.name}:`,
@@ -331,11 +453,26 @@ export class WebSocketRpcServer {
       }
     }
 
-    return generator.generateFullClient(extractionResults, {
+    const options = {
       websocketUrl: `ws://localhost:${config.port}/ws`,
       timeout: 10000,
       clientClassName: "RpcClient",
       includeInterfaces: true,
-    });
+    };
+
+    // Generate client with MCP integration if enabled
+    if (this.mcpState) {
+      const mcpSchemas = this.mcpState.schemaFetcher.getAllSchemas();
+      const mcpExtractionResults = convertMcpSchemasToExtractionResults(
+        mcpSchemas
+      );
+      return generator.generateFullClientWithMcp(
+        rpcExtractionResults,
+        mcpExtractionResults,
+        options
+      );
+    }
+
+    return generator.generateFullClient(rpcExtractionResults, options);
   }
 }

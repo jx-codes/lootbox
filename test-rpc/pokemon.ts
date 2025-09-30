@@ -71,7 +71,12 @@ const TYPE_CHART: Record<string, { strong: string[], weak: string[] }> = {
   normal: { strong: [], weak: ['fighting'] }
 };
 
-// Fetch basic Pokemon data
+/**
+ * Fetch basic Pokemon data from the PokeAPI
+ * @param args Contains the Pokemon name to fetch
+ * @returns Complete Pokemon information including stats, types, abilities, and sprites
+ * @example fetchPokemon({ name: "pikachu" })
+ */
 export async function fetchPokemon(args: { name: string }): Promise<PokemonBasicInfo> {
   const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${args.name.toLowerCase()}`);
 
@@ -106,7 +111,12 @@ export async function fetchPokemon(args: { name: string }): Promise<PokemonBasic
   };
 }
 
-// Compare two Pokemon with battle analysis
+/**
+ * Compare two Pokemon with detailed battle analysis
+ * Analyzes stats, type advantages, and provides battle recommendations
+ * @param args Contains names of two Pokemon to compare
+ * @returns Detailed comparison with strengths, weaknesses, and battle recommendation
+ */
 export async function comparePokemon(args: { pokemon1: string; pokemon2: string }): Promise<PokemonComparison> {
   // Fetch both Pokemon data
   const [p1, p2] = await Promise.all([
