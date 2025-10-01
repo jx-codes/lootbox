@@ -43,6 +43,8 @@ export class WebSocketRpcServer {
     clientManager: McpClientManager;
     schemaFetcher: McpSchemaFetcher;
   } | null = null;
+  private cachedClientCode: string | null = null;
+  private cachedTypes: string | null = null;
 
   constructor() {
     this.setupRoutes();
@@ -57,13 +59,17 @@ export class WebSocketRpcServer {
     });
 
     this.app.get("/types", async (c) => {
-      const types = await this.generateTypes();
-      return c.text(types);
+      if (!this.cachedTypes) {
+        this.cachedTypes = await this.generateTypes();
+      }
+      return c.text(this.cachedTypes);
     });
 
     this.app.get("/client.ts", async (c) => {
-      const clientCode = await this.generateClientCode();
-      return c.text(clientCode);
+      if (!this.cachedClientCode) {
+        this.cachedClientCode = await this.generateClientCode();
+      }
+      return c.text(this.cachedClientCode);
     });
 
     this.app.get(
@@ -191,6 +197,10 @@ export class WebSocketRpcServer {
 
       // Clear existing cache
       this.rpcFiles.clear();
+
+      // Invalidate cached client and types
+      this.cachedClientCode = null;
+      this.cachedTypes = null;
 
       // Rebuild function cache with namespaced method names
       for (const file of files) {
