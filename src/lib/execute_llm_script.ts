@@ -26,6 +26,7 @@ export const execute_llm_script = async (script: string) => {
       args: [
         "run",
         "--allow-net", // Only allow network access for user scripts (sandboxed)
+        "--allow-import=localhost:8080", // Allow importing from local RPC server
         "--no-check=remote", // Don't check remote imports
         tempFile,
       ],
