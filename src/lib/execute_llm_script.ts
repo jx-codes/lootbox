@@ -4,40 +4,15 @@ export const execute_llm_script = async (script: string) => {
   const startTime = Date.now();
   console.error("🔧 execute_llm_script: Starting execution");
 
-  // Fetch the generated client and inject it into the script - need to get current server port
+  // Import client via HTTP URL - Deno will cache the compiled module
   const { get_config } = await import("./get_config.ts");
   const config = get_config();
   const clientUrl = `http://localhost:${config.port}/client.ts`;
 
-  console.error(`📥 Fetching client code from ${clientUrl}...`);
-  const clientResponse = await fetch(clientUrl);
+  console.error(`📦 Using client from ${clientUrl} (Deno will cache)`);
 
-  if (!clientResponse.ok) {
-    console.error(
-      `❌ Failed to fetch client: ${clientResponse.status} ${clientResponse.statusText}`
-    );
-    const error = `Failed to fetch client code: ${clientResponse.status}`;
-
-    // Save failed run (client fetch failure)
-    await saveScriptRun({
-      timestamp: startTime,
-      script,
-      success: false,
-      error,
-      durationMs: Date.now() - startTime,
-    });
-
-    return {
-      success: false,
-      error,
-    };
-  }
-
-  const clientCode = await clientResponse.text();
-  console.error(`✅ Client code fetched: ${clientCode.length} chars`);
-
-  // Inject client at the top of the user script
-  const injectedScript = `${clientCode}\n\n// User script begins here\n${script}`;
+  // Inject import statement at the top of the user script
+  const injectedScript = `import { rpc } from "${clientUrl}";\n\n// User script begins here\n${script}`;
 
   const tempFile = await Deno.makeTempFile({ suffix: ".ts" });
   console.error(`📁 Created temp file: ${tempFile}`);
