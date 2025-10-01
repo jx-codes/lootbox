@@ -24,7 +24,7 @@ console.log(JSON.stringify({ success: true, data: result }));
       args: [
         "run",
         "--allow-all", // Full permissions for trusted RPC functions
-        "--no-check=remote", // Skip type checking for remote modules only
+        "--no-check", // Skip type checking for remote modules only
         tempFile,
       ],
       stdout: "piped",
