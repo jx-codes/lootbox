@@ -16,3 +16,5 @@ rpc-server
 mcp-rpc-runtime
 mcp-rpc-runtime.exe
 .claude
+filedb_data/
+script-history/

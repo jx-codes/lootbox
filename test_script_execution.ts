@@ -28,7 +28,12 @@ console.log("🎮 Starting Pokemon Team Analysis...");
 const team = ["charizard", "blastoise", "venusaur", "pikachu", "alakazam", "machamp"];
 console.log(\`Analyzing team: \${team.join(", ")}\`);
 
-const analysis = await rpc.pokemon.analyzeTeam({ teamNames: team });
+// Execute all RPC calls in parallel for maximum performance
+const [analysis, battle, rec] = await Promise.all([
+  rpc.pokemon.analyzeTeam({ teamNames: team }),
+  rpc.pokemon.comparePokemon({ pokemon1: "mewtwo", pokemon2: "mew" }),
+  rpc.pokemon.recommendPokemon({ type: "fire", minStatTotal: 500 })
+]);
 
 console.log("\\n🏆 Team Analysis Results:");
 console.log(\`Strengths: \${analysis.strengths.join(", ")}\`);
@@ -36,15 +41,10 @@ console.log(\`Weaknesses: \${analysis.weaknesses.join(", ")}\`);
 console.log(\`Offensive Coverage: \${analysis.coverage.offensiveTypes.length} types\`);
 console.log(\`Defensive Gaps: \${analysis.coverage.defensiveGaps.join(", ")}\`);
 
-// Compare legendary Pokemon
 console.log("\\n⚔️ Legendary Battle: Mewtwo vs Mew");
-const battle = await rpc.pokemon.comparePokemon({ pokemon1: "mewtwo", pokemon2: "mew" });
-
 console.log(\`Battle Prediction: \${battle.analysis.recommendation}\`);
 
-// Get recommendation
 console.log("\\n🎲 Getting Fire-type recommendation...");
-const rec = await rpc.pokemon.recommendPokemon({ type: "fire", minStatTotal: 500 });
 console.log(\`Recommended: \${rec.pokemon.name} - \${rec.reason}\`);
 
 // Final report

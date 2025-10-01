@@ -1,15 +1,18 @@
 import { saveScriptRun } from "./script_history.ts";
+import { get_client } from "./client_cache.ts";
 
-export const execute_llm_script = async (script: string) => {
+export const execute_llm_script = async (args: { script: string; sessionId?: string }) => {
+  const { script, sessionId } = args;
   const startTime = Date.now();
   console.error("🔧 execute_llm_script: Starting execution");
 
-  // Import client via HTTP URL - Deno will cache the compiled module
+  // Import client via HTTP URL with version for cache busting only when RPC files change
   const { get_config } = await import("./get_config.ts");
   const config = get_config();
-  const clientUrl = `http://localhost:${config.port}/client.ts`;
+  const client = get_client();
+  const clientUrl = `http://localhost:${config.port}/client.ts?v=${client.version}`;
 
-  console.error(`📦 Using client from ${clientUrl} (Deno will cache)`);
+  console.error(`📦 Using client from ${clientUrl} (version ${client.version})`);
 
   // Inject import statement at the top of the user script
   const injectedScript = `import { rpc } from "${clientUrl}";\n\n// User script begins here\n${script}`;
@@ -56,6 +59,7 @@ export const execute_llm_script = async (script: string) => {
         error,
         output: outStr,
         durationMs,
+        sessionId,
       });
 
       return {
@@ -72,6 +76,7 @@ export const execute_llm_script = async (script: string) => {
       success: true,
       output: outStr,
       durationMs,
+      sessionId,
     });
 
     return {
@@ -95,6 +100,7 @@ export const execute_llm_script = async (script: string) => {
         success: false,
         error: errorMsg,
         durationMs,
+        sessionId,
       });
 
       return {
@@ -112,6 +118,7 @@ export const execute_llm_script = async (script: string) => {
       success: false,
       error: errorMsg,
       durationMs,
+      sessionId,
     });
 
     return {

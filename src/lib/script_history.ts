@@ -11,21 +11,50 @@ export interface ScriptRun {
   output?: unknown;     // Success output (if any)
   error?: string;       // Error message (if failed)
   durationMs?: number;  // Execution duration in milliseconds
+  sessionId?: string;   // Optional session identifier for grouping related runs
+}
+
+/**
+ * Get platform-specific data directory following XDG Base Directory spec
+ */
+function getDefaultDataDir(): string {
+  const platform = Deno.build.os;
+
+  if (platform === "windows") {
+    const appData = Deno.env.get("APPDATA") || Deno.env.get("USERPROFILE");
+    return appData ? join(appData, "mcp-rpc-runtime") : join(Deno.cwd(), "mcp-rpc-data");
+  } else if (platform === "darwin") {
+    const home = Deno.env.get("HOME");
+    return home ? join(home, "Library", "Application Support", "mcp-rpc-runtime") : join(Deno.cwd(), "mcp-rpc-data");
+  } else {
+    // Linux/Unix - follow XDG spec
+    const xdgDataHome = Deno.env.get("XDG_DATA_HOME");
+    const home = Deno.env.get("HOME");
+    if (xdgDataHome) {
+      return join(xdgDataHome, "mcp-rpc-runtime");
+    } else if (home) {
+      return join(home, ".local", "share", "mcp-rpc-runtime");
+    }
+    return join(Deno.cwd(), "mcp-rpc-data");
+  }
 }
 
 /**
  * Get the script history directory path
- * Stored relative to current working directory
+ * Uses platform-specific standard location or user-provided override
  */
-function getHistoryDir(): string {
-  return join(Deno.cwd(), "script-history");
+async function getHistoryDir(): Promise<string> {
+  const { get_config } = await import("./get_config.ts");
+  const config = get_config();
+  const baseDir = config.mcp_rpc_data_dir || getDefaultDataDir();
+  return join(baseDir, "script-history");
 }
 
 /**
  * Ensure the script history directory exists
  */
 async function ensureHistoryDir(): Promise<void> {
-  const dir = getHistoryDir();
+  const dir = await getHistoryDir();
   try {
     await Deno.mkdir(dir, { recursive: true });
   } catch (error) {
@@ -67,7 +96,7 @@ export async function saveScriptRun(run: Omit<ScriptRun, "id">): Promise<void> {
     try {
       await ensureHistoryDir();
       const filename = getChunkFilename(new Date(scriptRun.timestamp));
-      const filepath = join(getHistoryDir(), filename);
+      const filepath = join(await getHistoryDir(), filename);
 
       // Append as single line JSONL
       const jsonLine = JSON.stringify(scriptRun) + '\n';
@@ -87,7 +116,7 @@ export async function saveScriptRun(run: Omit<ScriptRun, "id">): Promise<void> {
 export async function loadScriptHistory(): Promise<ScriptRun[]> {
   try {
     await ensureHistoryDir();
-    const dir = getHistoryDir();
+    const dir = await getHistoryDir();
     const runs: ScriptRun[] = [];
 
     for await (const entry of Deno.readDir(dir)) {
@@ -149,7 +178,7 @@ export async function getRunsInRange(
 export async function cleanupOldRuns(keepDays: number): Promise<number> {
   try {
     await ensureHistoryDir();
-    const dir = getHistoryDir();
+    const dir = await getHistoryDir();
     const cutoffTime = Date.now() - (keepDays * 24 * 60 * 60 * 1000);
     let deletedCount = 0;
 
@@ -191,7 +220,7 @@ export async function loadRunsForDate(date: Date): Promise<ScriptRun[]> {
   try {
     await ensureHistoryDir();
     const filename = getChunkFilename(date);
-    const filepath = join(getHistoryDir(), filename);
+    const filepath = join(await getHistoryDir(), filename);
 
     const content = await Deno.readTextFile(filepath);
     const runs: ScriptRun[] = [];

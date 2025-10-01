@@ -139,6 +139,7 @@ ws.send(JSON.stringify({
     console.log('Math result:', result);
     console.log('Weather:', weather);
   `,
+  sessionId: 'user-session-123',  // Optional: associate script with a session
   id: 'script_456'
 }));
 ```
@@ -233,13 +234,21 @@ console.log('Battle analysis:', battle.analysis.recommendation);
 deno run --allow-all src/main.ts [options]
 
 Required:
-  --rpc-dir, -r    Directory containing RPC TypeScript files
-  --port, -p       Port number for WebSocket server
+  --rpc-dir, -r           Directory containing RPC TypeScript files
+  --port, -p              Port number for WebSocket server
+
+Optional:
+  --mcp-config, -m        Path to MCP server configuration file
+  --mcp-rpc-data-dir, -d  Directory for runtime data (script history, etc.)
+                          Defaults to platform-specific standard location:
+                          - macOS: ~/Library/Application Support/mcp-rpc-runtime
+                          - Linux: ~/.local/share/mcp-rpc-runtime
+                          - Windows: %APPDATA%/mcp-rpc-runtime
 
 Examples:
   --rpc-dir ./functions --port 8080
-  --rpc-dir ~/.rpc --port 3000
-  -r ./my-api -p 4000
+  --rpc-dir ~/.rpc --port 3000 --mcp-rpc-data-dir ./my-data
+  -r ./my-api -p 4000 -d /custom/data/path
 ```
 
 ### Deno Tasks

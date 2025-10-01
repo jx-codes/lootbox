@@ -4,15 +4,17 @@ interface ResolvedConfig {
   rpc_dir: string;
   port: number;
   mcp_config: string | null;
+  mcp_rpc_data_dir: string | null;
 }
 
 export const get_config = (): ResolvedConfig => {
   const args = parseArgs(Deno.args, {
-    string: ["rpc-dir", "port", "mcp-config"],
+    string: ["rpc-dir", "port", "mcp-config", "mcp-rpc-data-dir"],
     alias: {
       "rpc-dir": "r",
       "port": "p",
       "mcp-config": "m",
+      "mcp-rpc-data-dir": "d",
     },
   });
 
@@ -57,5 +59,6 @@ export const get_config = (): ResolvedConfig => {
     rpc_dir: args["rpc-dir"] as string,
     port: port,
     mcp_config: mcpConfigPath,
+    mcp_rpc_data_dir: args["mcp-rpc-data-dir"] as string | null || null,
   };
 };
