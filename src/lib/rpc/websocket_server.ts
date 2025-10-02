@@ -61,11 +61,23 @@ export class WebSocketRpcServer {
       });
     });
 
+    this.app.get("/namespaces", async (c) => {
+      const namespaces = await this.getAvailableNamespaces();
+      return c.json(namespaces);
+    });
+
     this.app.get("/types", async (c) => {
       if (!this.cachedTypes) {
         this.cachedTypes = await this.generateTypes();
       }
       return c.text(this.cachedTypes);
+    });
+
+    this.app.get("/types/:namespaces", async (c) => {
+      const namespacesParam = c.req.param("namespaces");
+      const requestedNamespaces = namespacesParam.split(",").map(ns => ns.trim());
+      const types = await this.generateNamespaceTypes(requestedNamespaces);
+      return c.text(types);
     });
 
     this.app.get("/client.ts", (c) => {
@@ -602,5 +614,83 @@ export class WebSocketRpcServer {
     }
 
     return generator.generateFullClient(rpcExtractionResults, options);
+  }
+
+  /**
+   * Get list of available namespaces
+   */
+  private async getAvailableNamespaces(): Promise<{ rpc: string[]; mcp: string[] }> {
+    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
+    const { ClientGenerator } = await import("../type_system/client_generator.ts");
+
+    const uniqueFiles = new Map<string, RpcFile>();
+    for (const file of this.rpcFiles.values()) {
+      uniqueFiles.set(file.path, file);
+    }
+
+    const extractor = new TypeExtractor();
+    const generator = new ClientGenerator();
+    const rpcExtractionResults = [];
+
+    for (const file of uniqueFiles.values()) {
+      try {
+        const result = extractor.extractFromFile(file.path);
+        rpcExtractionResults.push(result);
+      } catch (err) {
+        console.error(`Error extracting types from ${file.name}:`, err);
+      }
+    }
+
+    const mcpExtractionResults = this.mcpState
+      ? convertMcpSchemasToExtractionResults(
+          this.mcpState.schemaFetcher.getAllSchemas()
+        )
+      : [];
+
+    return generator.getAvailableNamespaces(rpcExtractionResults, mcpExtractionResults);
+  }
+
+  /**
+   * Generate types for specific namespaces
+   */
+  private async generateNamespaceTypes(namespaces: string[]): Promise<string> {
+    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
+    const { ClientGenerator } = await import("../type_system/client_generator.ts");
+    const { NamespaceFilter } = await import("../type_system/namespace_filter.ts");
+    const { get_config } = await import("../get_config.ts");
+
+    const config = get_config();
+
+    const uniqueFiles = new Map<string, RpcFile>();
+    for (const file of this.rpcFiles.values()) {
+      uniqueFiles.set(file.path, file);
+    }
+
+    const extractor = new TypeExtractor();
+    const generator = new ClientGenerator();
+    const filter = new NamespaceFilter(generator);
+    const rpcExtractionResults = [];
+
+    for (const file of uniqueFiles.values()) {
+      try {
+        const result = extractor.extractFromFile(file.path);
+        rpcExtractionResults.push(result);
+      } catch (err) {
+        console.error(`Error extracting types from ${file.name}:`, err);
+      }
+    }
+
+    const mcpExtractionResults = this.mcpState
+      ? convertMcpSchemasToExtractionResults(
+          this.mcpState.schemaFetcher.getAllSchemas()
+        )
+      : [];
+
+    return filter.generateNamespaceTypes(
+      rpcExtractionResults,
+      mcpExtractionResults,
+      namespaces,
+      config.port
+    );
   }
 }

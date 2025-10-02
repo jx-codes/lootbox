@@ -30,6 +30,7 @@ export const execute_llm_script = async (args: { script: string; sessionId?: str
         "run",
         "--allow-net", // Only allow network access for user scripts (sandboxed)
         "--allow-import=localhost:8080", // Allow importing from local RPC server
+        `--reload=http://localhost:${config.port}/client.ts`, // Force reload client on each execution
         "--no-check=remote", // Don't check remote imports
         tempFile,
       ],

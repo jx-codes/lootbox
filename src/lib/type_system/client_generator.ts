@@ -109,75 +109,10 @@ export class ClientGenerator {
     const allResults = [...rpcResults, ...mcpResults];
     code += this.generateInterfaces(allResults);
     code += this.generateRpcClientInterfaceWithMcp(rpcResults, mcpResults);
-    code += "\n" + this.generateNamespaceSummary(rpcResults, mcpResults);
 
     return code;
   }
 
-  /**
-   * Generate compact namespace and function summary with type signatures
-   */
-  private generateNamespaceSummary(
-    rpcResults: ExtractionResult[],
-    mcpResults: ExtractionResult[]
-  ): string {
-    let summary = "// Available RPC Functions Summary\n//\n";
-
-    // RPC functions
-    const rpcGrouped = this.groupFunctionsByNamespace(rpcResults);
-    for (const [namespace, namespaceResults] of Object.entries(rpcGrouped)) {
-      summary += `// rpc.${namespace}.*\n`;
-
-      for (const result of namespaceResults) {
-        const prefix = this.capitalizeNamespace(namespace);
-
-        for (const func of result.functions) {
-          const paramType = this.prefixTypesInResult(
-            this.extractDataType(func.parameters[0]?.type || "unknown"),
-            result,
-            prefix
-          );
-          const returnType = this.prefixTypesInResult(
-            this.formatReturnType(func.returnType, func.isAsync),
-            result,
-            prefix
-          );
-
-          summary += `//   - ${func.name}(args: ${paramType}): ${returnType}\n`;
-        }
-      }
-    }
-
-    // MCP functions
-    if (mcpResults.length > 0) {
-      summary += "//\n// External MCP Servers:\n";
-      const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
-      for (const [namespace, namespaceResults] of Object.entries(mcpGrouped)) {
-        summary += `// rpc.mcp_${namespace}.*\n`;
-
-        for (const result of namespaceResults) {
-          const prefix = this.capitalizeNamespace(namespace);
-
-          for (const func of result.functions) {
-            const paramType = this.prefixTypesInResult(
-              this.extractDataType(func.parameters[0]?.type || "unknown"),
-              result,
-              prefix
-            );
-            const returnType = this.prefixTypesInResult(
-              this.formatReturnType(func.returnType, func.isAsync),
-              result,
-              prefix
-            );
-
-            summary += `//   - ${func.name}(args: ${paramType}): ${returnType}\n`;
-          }
-        }
-      }
-    }
-
-    return summary;
-  }
 
   /**
    * Generate file header
@@ -563,7 +498,7 @@ ${Object.entries(grouped).map(([namespace, namespaceResults]) => {
     const rpcGrouped = this.groupFunctionsByNamespace(rpcResults);
     const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
 
-    let proxySections: string[] = [];
+    const proxySections: string[] = [];
 
     // Generate RPC sections
     for (const [namespace, namespaceResults] of Object.entries(rpcGrouped)) {
@@ -684,74 +619,20 @@ export interface RpcResponse {
 `;
   }
 
-  /**
-   * Format JSDoc comment for an interface
-   */
-  private formatJSDoc(doc: any): string {
-    let comment = "/**\n";
-
-    if (doc.description) {
-      comment += ` * ${doc.description}\n`;
-    }
-
-    if (doc.deprecated) {
-      comment += ` * @deprecated ${doc.deprecated}\n`;
-    }
-
-    if (doc.tags) {
-      for (const [tagName, tagValue] of Object.entries(doc.tags)) {
-        comment += ` * @${tagName} ${tagValue}\n`;
-      }
-    }
-
-    comment += " */\n";
-    return comment;
-  }
 
   /**
-   * Format JSDoc comment for a property
+   * Group functions by namespace and return available namespace names
    */
-  private formatPropertyJSDoc(doc: string, indent = "  "): string {
-    return `${indent}/** ${doc} */\n`;
-  }
+  getAvailableNamespaces(
+    rpcResults: ExtractionResult[],
+    mcpResults: ExtractionResult[]
+  ): { rpc: string[]; mcp: string[] } {
+    const rpcGrouped = this.groupFunctionsByNamespace(rpcResults);
+    const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
 
-  /**
-   * Format JSDoc comment for a method
-   */
-  private formatMethodJSDoc(doc: any, indent = ""): string {
-    let comment = `${indent}/**\n`;
-
-    if (doc.description) {
-      comment += `${indent} * ${doc.description}\n`;
-    }
-
-    if (doc.paramDescriptions) {
-      for (const [paramName, paramDesc] of Object.entries(doc.paramDescriptions)) {
-        comment += `${indent} * @param ${paramName} ${paramDesc}\n`;
-      }
-    }
-
-    if (doc.returnDescription) {
-      comment += `${indent} * @returns ${doc.returnDescription}\n`;
-    }
-
-    if (doc.examples && doc.examples.length > 0) {
-      for (const example of doc.examples) {
-        comment += `${indent} * @example ${example}\n`;
-      }
-    }
-
-    if (doc.deprecated) {
-      comment += `${indent} * @deprecated ${doc.deprecated}\n`;
-    }
-
-    if (doc.tags) {
-      for (const [tagName, tagValue] of Object.entries(doc.tags)) {
-        comment += `${indent} * @${tagName} ${tagValue}\n`;
-      }
-    }
-
-    comment += `${indent} */\n`;
-    return comment;
+    return {
+      rpc: Object.keys(rpcGrouped),
+      mcp: Object.keys(mcpGrouped)
+    };
   }
 }
