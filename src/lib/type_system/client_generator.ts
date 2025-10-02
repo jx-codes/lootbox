@@ -9,6 +9,14 @@ export interface ClientGeneratorOptions {
   timeout: number;
 }
 
+export interface NamespaceInfo {
+  name: string;
+  functionCount: number;
+  description: string;
+  useWhen: string;
+  tags: string[];
+}
+
 export class ClientGenerator {
   private defaultOptions: ClientGeneratorOptions = {
     includeInterfaces: true,
@@ -102,7 +110,16 @@ export class ClientGenerator {
     let code = `// TypeScript execution environment
 // - Deno runtime with standard APIs (fetch, console, etc.)
 // - Network access enabled
-// - RPC client available via: import { rpc } from "http://localhost:${port}/client.ts"
+// - RPC client 'rpc' is available (injected automatically)
+//
+// Usage examples:
+//   const result = await rpc.namespace.function({ arg: value });
+//
+//   // Run independent tasks concurrently:
+//   const [data1, data2] = await Promise.all([
+//     rpc.namespace.function1({ arg: value }),
+//     rpc.namespace.function2({ arg: value })
+//   ]);
 
 `;
 
@@ -633,6 +650,41 @@ export interface RpcResponse {
     return {
       rpc: Object.keys(rpcGrouped),
       mcp: Object.keys(mcpGrouped)
+    };
+  }
+
+  /**
+   * Get namespace metadata including function counts and meta information
+   */
+  getNamespaceMetadata(
+    rpcResults: ExtractionResult[],
+    mcpResults: ExtractionResult[]
+  ): { rpc: NamespaceInfo[]; mcp: NamespaceInfo[] } {
+    const rpcGrouped = this.groupFunctionsByNamespace(rpcResults);
+    const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
+
+    const buildNamespaceInfo = (grouped: Record<string, ExtractionResult[]>): NamespaceInfo[] => {
+      return Object.entries(grouped).map(([namespace, results]) => {
+        // Count total functions across all results in this namespace
+        const functionCount = results.reduce((sum, result) => sum + result.functions.length, 0);
+
+        // Find the first result with metadata (usually there's only one file per namespace)
+        const metaResult = results.find(r => r.meta);
+        const meta = metaResult?.meta;
+
+        return {
+          name: namespace,
+          functionCount,
+          description: meta?.description || "",
+          useWhen: meta?.useWhen || "",
+          tags: meta?.tags || []
+        };
+      });
+    };
+
+    return {
+      rpc: buildNamespaceInfo(rpcGrouped),
+      mcp: buildNamespaceInfo(mcpGrouped)
     };
   }
 }

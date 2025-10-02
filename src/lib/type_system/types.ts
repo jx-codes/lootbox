@@ -61,11 +61,18 @@ export interface ExtractionError {
   severity: "error" | "warning";
 }
 
+export interface NamespaceMetadata {
+  description?: string;
+  useWhen?: string;
+  tags?: string[];
+}
+
 export interface ExtractionResult {
   functions: FunctionSignature[];
   interfaces: InterfaceDefinition[];
   errors: ExtractionError[];
   sourceFile: string;
+  meta?: NamespaceMetadata;
 }
 
 export interface RpcFileInfo {

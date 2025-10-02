@@ -66,6 +66,11 @@ export class WebSocketRpcServer {
       return c.json(namespaces);
     });
 
+    this.app.get("/rpc-namespaces", async (c) => {
+      const metadata = await this.getRpcNamespaces();
+      return c.text(metadata);
+    });
+
     this.app.get("/types", async (c) => {
       if (!this.cachedTypes) {
         this.cachedTypes = await this.generateTypes();
@@ -648,6 +653,84 @@ export class WebSocketRpcServer {
       : [];
 
     return generator.getAvailableNamespaces(rpcExtractionResults, mcpExtractionResults);
+  }
+
+  /**
+   * Get RPC namespaces with metadata (for LLM discovery)
+   */
+  private async getRpcNamespaces(): Promise<string> {
+    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
+    const { ClientGenerator } = await import("../type_system/client_generator.ts");
+
+    const uniqueFiles = new Map<string, RpcFile>();
+    for (const file of this.rpcFiles.values()) {
+      uniqueFiles.set(file.path, file);
+    }
+
+    const extractor = new TypeExtractor();
+    const generator = new ClientGenerator();
+    const rpcExtractionResults = [];
+
+    for (const file of uniqueFiles.values()) {
+      try {
+        const result = extractor.extractFromFile(file.path);
+        rpcExtractionResults.push(result);
+      } catch (err) {
+        console.error(`Error extracting types from ${file.name}:`, err);
+      }
+    }
+
+    const mcpExtractionResults = this.mcpState
+      ? convertMcpSchemasToExtractionResults(
+          this.mcpState.schemaFetcher.getAllSchemas()
+        )
+      : [];
+
+    const metadata = generator.getNamespaceMetadata(rpcExtractionResults, mcpExtractionResults);
+
+    // Format as text with instruction block
+    let output = "Available Namespaces:\n\n";
+
+    output += "<namespaces>\n";
+
+    // Combine RPC and MCP namespaces (MCP namespaces are prefixed with mcp_)
+    const allNamespaces = [
+      ...metadata.rpc,
+      ...metadata.mcp.map(ns => ({ ...ns, name: `mcp_${ns.name}` }))
+    ];
+
+    if (allNamespaces.length > 0) {
+      for (const ns of allNamespaces) {
+        output += `- ${ns.name} (${ns.functionCount} function${ns.functionCount !== 1 ? 's' : ''})`;
+        if (ns.description) {
+          output += ` - ${ns.description}`;
+        }
+        output += "\n";
+        if (ns.useWhen) {
+          output += `  Use when: ${ns.useWhen}\n`;
+        }
+        if (ns.tags.length > 0) {
+          output += `  Tags: ${ns.tags.join(", ")}\n`;
+        }
+        output += "\n";
+      }
+    } else {
+      output += "(none)\n";
+    }
+    output += "</namespaces>\n\n";
+
+    // Add instruction block
+    output += `<on_finish>
+IMPORTANT: Before using any namespace, you MUST call get_namespace_types()
+with the namespace names you want to use to load their TypeScript definitions.
+
+Example: get_namespace_types(["filedb", "hackernews"])
+
+This loads the type definitions for those specific namespaces without loading
+all namespaces at once, which saves context space.
+</on_finish>\n`;
+
+    return output;
   }
 
   /**

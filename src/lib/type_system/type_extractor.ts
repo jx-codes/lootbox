@@ -16,6 +16,7 @@ import type {
   FunctionSignature,
   InterfaceDefinition,
   InterfaceProperty,
+  NamespaceMetadata,
   Parameter,
 } from "./types.ts";
 import { DocumentationExtractor } from "./documentation_extractor.ts";
@@ -112,6 +113,7 @@ export class TypeExtractor {
     const functions: FunctionSignature[] = [];
     const interfaces: InterfaceDefinition[] = [];
     const errors: ExtractionError[] = [];
+    let meta: NamespaceMetadata | undefined;
 
     try {
       // Extract exported functions
@@ -158,11 +160,15 @@ export class TypeExtractor {
         }
       });
 
+      // Extract meta export if present
+      meta = this.extractMetadata(sourceFile);
+
       return {
         functions,
         interfaces,
         errors,
         sourceFile: sourceFile.getFilePath(),
+        meta,
       };
     } catch (error) {
       errors.push({
@@ -178,6 +184,7 @@ export class TypeExtractor {
         interfaces,
         errors,
         sourceFile: sourceFile.getFilePath(),
+        meta,
       };
     }
   }
@@ -391,6 +398,64 @@ export class TypeExtractor {
     typeText = typeText.replace(/\bPromise<(.+)>\b/, "Promise<$1>");
 
     return typeText;
+  }
+
+  /**
+   * Extract metadata from exported 'meta' constant
+   */
+  private extractMetadata(sourceFile: SourceFile): NamespaceMetadata | undefined {
+    try {
+      const exported = sourceFile.getExportedDeclarations();
+      const metaDeclarations = exported.get("meta");
+
+      if (!metaDeclarations || metaDeclarations.length === 0) {
+        return undefined;
+      }
+
+      const metaDecl = metaDeclarations[0];
+
+      // Check if it's a variable declaration
+      if (!Node.isVariableDeclaration(metaDecl)) {
+        return undefined;
+      }
+
+      const initializer = metaDecl.getInitializer();
+      if (!initializer || !Node.isObjectLiteralExpression(initializer)) {
+        return undefined;
+      }
+
+      const metadata: NamespaceMetadata = {};
+
+      // Extract properties from the object literal
+      for (const prop of initializer.getProperties()) {
+        if (Node.isPropertyAssignment(prop)) {
+          const name = prop.getName();
+          const value = prop.getInitializer();
+
+          if (!value) continue;
+
+          if (name === "description" && Node.isStringLiteral(value)) {
+            metadata.description = value.getLiteralValue();
+          } else if (name === "useWhen" && Node.isStringLiteral(value)) {
+            metadata.useWhen = value.getLiteralValue();
+          } else if (name === "tags" && Node.isArrayLiteralExpression(value)) {
+            const elements = value.getElements();
+            const tags: string[] = [];
+            for (const el of elements) {
+              if (Node.isStringLiteral(el)) {
+                tags.push(el.getLiteralValue());
+              }
+            }
+            metadata.tags = tags;
+          }
+        }
+      }
+
+      return Object.keys(metadata).length > 0 ? metadata : undefined;
+    } catch (error) {
+      console.error("Failed to extract metadata:", error);
+      return undefined;
+    }
   }
 
   /**
