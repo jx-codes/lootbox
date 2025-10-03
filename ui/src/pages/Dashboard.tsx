@@ -1,7 +1,17 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useHealth, useWebSocketStatus, useAvailableFunctions } from "@/lib/hooks";
-import { Activity, Zap, Database, CheckCircle, XCircle } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  useAvailableFunctions,
+  useHealth,
+  useWebSocketStatus,
+} from "@/lib/hooks";
+import { Activity, CheckCircle, Database, XCircle, Zap } from "lucide-react";
 
 export default function Dashboard() {
   const { data: health, isError: healthError } = useHealth();
@@ -9,7 +19,10 @@ export default function Dashboard() {
   const availableFunctions = useAvailableFunctions();
 
   // Group functions by namespace
-  const namespaceMap = new Map<string, { name: string; count: number; type: string }>();
+  const namespaceMap = new Map<
+    string,
+    { name: string; count: number; type: string }
+  >();
   availableFunctions.forEach((fullName) => {
     const [namespace] = fullName.split(".");
     if (namespace) {
@@ -26,7 +39,9 @@ export default function Dashboard() {
     }
   });
 
-  const namespaces = Array.from(namespaceMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const namespaces = Array.from(namespaceMap.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   const isHealthy = health?.status === "ok";
   const isConnected = wsStatus?.connected ?? false;
@@ -39,7 +54,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 mb-2">
             <Activity className="h-8 w-8 text-blue-600" />
             <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">
-              RPC Runtime
+              Lootbox Runtime
             </h1>
           </div>
           <p className="text-slate-600 dark:text-slate-400">
@@ -65,9 +80,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <div
                   className={`h-3 w-3 rounded-full ${
-                    isHealthy
-                      ? "bg-green-600 animate-pulse"
-                      : "bg-red-600"
+                    isHealthy ? "bg-green-600 animate-pulse" : "bg-red-600"
                   }`}
                 />
                 <span
@@ -86,16 +99,18 @@ export default function Dashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">WebSocket</CardTitle>
-                <Zap className={`h-6 w-6 ${isConnected ? "text-green-600" : "text-slate-400"}`} />
+                <Zap
+                  className={`h-6 w-6 ${
+                    isConnected ? "text-green-600" : "text-slate-400"
+                  }`}
+                />
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
                 <div
                   className={`h-3 w-3 rounded-full ${
-                    isConnected
-                      ? "bg-green-600 animate-pulse"
-                      : "bg-slate-400"
+                    isConnected ? "bg-green-600 animate-pulse" : "bg-slate-400"
                   }`}
                 />
                 <span
@@ -118,14 +133,17 @@ export default function Dashboard() {
               <CardTitle>Available Namespaces</CardTitle>
             </div>
             <CardDescription>
-              {namespaces.length} namespace{namespaces.length !== 1 ? "s" : ""} with{" "}
-              {availableFunctions.length} function{availableFunctions.length !== 1 ? "s" : ""}
+              {namespaces.length} namespace{namespaces.length !== 1 ? "s" : ""}{" "}
+              with {availableFunctions.length} function
+              {availableFunctions.length !== 1 ? "s" : ""}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {namespaces.length === 0 ? (
               <div className="text-center py-8 text-slate-600 dark:text-slate-400">
-                {isConnected ? "No namespaces loaded" : "Waiting for connection..."}
+                {isConnected
+                  ? "No namespaces loaded"
+                  : "Waiting for connection..."}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
