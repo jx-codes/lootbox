@@ -11,7 +11,8 @@
     "start": "deno run --allow-all src/main.ts --rpc-dir ./test-rpc --port 8080",
     "fmt": "deno fmt",
     "lint": "deno lint",
-    "compile": "deno compile --allow-all -o mcp-rpc-runtime src/main.ts"
+    "compile": "deno compile --allow-all -o mcp-rpc-runtime src/main.ts",
+    "compile-exec": "deno compile --allow-net -o mcp-rpc-exec src/exec.ts"
   },
   "fmt": {
     "useTabs": false,

@@ -18,3 +18,5 @@ mcp-rpc-runtime.exe
 .claude
 filedb_data/
 script-history/
+mcp-rpc-exec
+mcp-rpc-exec.exe
