@@ -59,11 +59,11 @@ function wsUrlToHttpUrl(wsUrl: string): string {
 }
 
 function showHelp() {
-  console.log(`lootbox - Execute TypeScript scripts 
+  console.log(`lootbox - Sandboxed TypeScript runtime with network access
 
-Lootbox gives you an entry point into mcp servers and other tools
-via the 'tools' object. You can write scripts to orchestrate, calculate,
-or transform data using the available functions.
+Write scripts with fetch() for web requests and the 'tools' object for MCP
+servers and other functions. Network-only sandbox (no file system access)
+keeps your system safe while you orchestrate, fetch, and transform data.
 
 Usage:
   lootbox [OPTIONS] [FILE]
@@ -91,6 +91,8 @@ Function Library (tools object):
 
 Options:
   -e, --eval <script>         Execute inline script
+                              Note: For complex scripts with special characters, save to a
+                              file and pipe it instead: cat script.ts | lootbox
   -s, --server <url>          WebSocket server URL (default: ws://localhost:8080/ws)
   --namespaces                List all namespaces available in tools object
   --types <ns1,ns2,...>       Show TypeScript types for specific namespaces
