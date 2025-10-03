@@ -23,6 +23,7 @@ import { McpIntegrationManager } from "./managers/mcp_integration_manager.ts";
 import { MessageRouter } from "./managers/message_router.ts";
 import { ConnectionManager } from "./managers/connection_manager.ts";
 import { OpenApiRouteHandler } from "./managers/openapi_route_handler.ts";
+import { setupUIRoutes } from "../ui_server.ts";
 
 export class WebSocketRpcServer {
   private app = new OpenAPIHono();
@@ -205,6 +206,9 @@ export class WebSocketRpcServer {
       this.currentPort
     );
     openApiHandler.setupRoutes();
+
+    // Setup UI routes
+    setupUIRoutes(this.app);
 
     // Setup WebSocket routes (cannot be documented via OpenAPI)
     this.setupWebSocketRoutes();

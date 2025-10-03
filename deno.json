@@ -8,11 +8,15 @@
   },
 
   "tasks": {
-    "start": "deno run --allow-all src/main.ts --rpc-dir ./test-rpc --port 8080",
+    "start": "MODE=development deno run --allow-all src/main.ts --rpc-dir ./test-rpc --port 8080",
+    "start:prod": "deno run --allow-all src/main.ts --rpc-dir ./test-rpc --port 8080",
     "fmt": "deno fmt",
     "lint": "deno lint",
-    "compile": "deno compile --allow-all -o mcp-rpc-runtime src/main.ts",
-    "compile-exec": "deno compile --allow-net -o mcp-rpc-exec src/exec.ts"
+    "compile": "deno task ui:build && deno compile --allow-all --include ui/dist -o mcp-rpc-runtime src/main.ts",
+    "compile-exec": "deno compile --allow-net -o mcp-rpc-exec src/exec.ts",
+    "ui:dev": "cd ui && deno run -A npm:vite",
+    "ui:build": "cd ui && deno run -A npm:vite build",
+    "ui:preview": "cd ui && deno run -A npm:vite preview"
   },
   "fmt": {
     "useTabs": false,
