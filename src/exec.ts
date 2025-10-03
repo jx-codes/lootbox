@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-net
+#!/usr/bin/env -S deno run --allow-net --allow-read
 /**
  * mcp-rpc-exec - Lightweight WebSocket client for one-shot script execution
  *
@@ -7,6 +7,11 @@
  *   mcp-rpc-exec -e 'console.log(1+1)'       # Execute inline
  *   cat script.ts | mcp-rpc-exec              # Execute from stdin
  *   mcp-rpc-exec --server ws://host:9000/ws script.ts
+ *
+ * Configuration:
+ *   Reads from mcp-rpc-exec.config.json in current directory if present.
+ *   Set "serverUrl" to configure default server.
+ *   CLI --server flag overrides config file.
  */
 
 import { parseArgs } from "@std/cli";
@@ -17,6 +22,10 @@ interface ExecResponse {
   id?: string;
 }
 
+interface Config {
+  serverUrl?: string;
+}
+
 async function readStdin(): Promise<string> {
   const decoder = new TextDecoder();
   const chunks: Uint8Array[] = [];
@@ -25,7 +34,9 @@ async function readStdin(): Promise<string> {
     chunks.push(chunk);
   }
 
-  const combined = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+  const combined = new Uint8Array(
+    chunks.reduce((acc, chunk) => acc + chunk.length, 0)
+  );
   let offset = 0;
   for (const chunk of chunks) {
     combined.set(chunk, offset);
@@ -41,7 +52,10 @@ function generateId(): string {
 
 function wsUrlToHttpUrl(wsUrl: string): string {
   // Convert ws://localhost:8080/ws -> http://localhost:8080
-  return wsUrl.replace(/^ws:/, "http:").replace(/^wss:/, "https:").replace(/\/ws$/, "");
+  return wsUrl
+    .replace(/^ws:/, "http:")
+    .replace(/^wss:/, "https:")
+    .replace(/\/ws$/, "");
 }
 
 function showHelp() {
@@ -64,6 +78,7 @@ Options:
   -s, --server <url>          WebSocket server URL (default: ws://localhost:8080/ws)
   --namespaces                List available RPC namespaces
   --types <ns1,ns2,...>       Show TypeScript types for specific namespaces
+  --config-help               Show configuration file information
   -h, --help                  Show this help message
   -v, --version               Show version
 
@@ -83,15 +98,38 @@ Examples:
 `);
 }
 
+function showConfigHelp() {
+  console.log(`mcp-rpc-exec - Configuration
+
+You can create a mcp-rpc-exec.config.json file in your project directory to set
+a default server URL. This is useful when using mcp-rpc-exec with Claude Code or
+other tools where you don't want to specify the server URL every time.
+
+Configuration File:
+  File: mcp-rpc-exec.config.json (in current directory)
+  Format: JSON
+
+Example:
+  {
+    "serverUrl": "ws://localhost:8080/ws"
+  }
+
+Priority:
+  --server flag > config file > default (ws://localhost:8080/ws)
+
+The config file is optional. If not found, the default server URL will be used.
+`);
+}
+
 async function main() {
   const args = parseArgs(Deno.args, {
     string: ["eval", "server", "types"],
-    boolean: ["help", "version", "namespaces"],
+    boolean: ["help", "version", "namespaces", "config-help"],
     alias: {
-      "e": "eval",
-      "s": "server",
-      "h": "help",
-      "v": "version",
+      e: "eval",
+      s: "server",
+      h: "help",
+      v: "version",
     },
   });
 
@@ -105,7 +143,24 @@ async function main() {
     Deno.exit(0);
   }
 
-  const serverUrl = (args.server as string) || "ws://localhost:8080/ws";
+  if (args["config-help"]) {
+    showConfigHelp();
+    Deno.exit(0);
+  }
+
+  // Load config file if present (silently ignore if not found)
+  let config: Config = {};
+  try {
+    const configText = await Deno.readTextFile("mcp-rpc-exec.config.json");
+    config = JSON.parse(configText);
+  } catch {
+    console.warn("Config file not found or not readable, use defaults");
+    // Config file not found or not readable, use defaults
+  }
+
+  // Priority: CLI arg > config file > default
+  const serverUrl =
+    (args.server as string) || config.serverUrl || "ws://localhost:8080/ws";
   const httpUrl = wsUrlToHttpUrl(serverUrl);
 
   // Handle discovery flags
@@ -120,7 +175,10 @@ async function main() {
       console.log(JSON.stringify(data, null, 2));
       Deno.exit(0);
     } catch (error) {
-      console.error(`Error connecting to server:`, error instanceof Error ? error.message : String(error));
+      console.error(
+        `Error connecting to server:`,
+        error instanceof Error ? error.message : String(error)
+      );
       Deno.exit(1);
     }
   }
@@ -137,7 +195,10 @@ async function main() {
       console.log(types);
       Deno.exit(0);
     } catch (error) {
-      console.error(`Error connecting to server:`, error instanceof Error ? error.message : String(error));
+      console.error(
+        `Error connecting to server:`,
+        error instanceof Error ? error.message : String(error)
+      );
       Deno.exit(1);
     }
   }
@@ -152,14 +213,19 @@ async function main() {
     try {
       script = await Deno.readTextFile(filePath);
     } catch (error) {
-      console.error(`Error reading file '${filePath}':`, error instanceof Error ? error.message : String(error));
+      console.error(
+        `Error reading file '${filePath}':`,
+        error instanceof Error ? error.message : String(error)
+      );
       Deno.exit(1);
     }
   } else {
     // Check if stdin is a TTY (interactive terminal)
     if (Deno.stdin.isTerminal()) {
       console.error("Error: No script provided");
-      console.error("Usage: mcp-rpc-exec [file] or mcp-rpc-exec -e 'script' or pipe via stdin");
+      console.error(
+        "Usage: mcp-rpc-exec [file] or mcp-rpc-exec -e 'script' or pipe via stdin"
+      );
       console.error("Run 'mcp-rpc-exec --help' for more information");
       Deno.exit(1);
     }
@@ -177,7 +243,10 @@ async function main() {
   try {
     ws = new WebSocket(serverUrl);
   } catch (error) {
-    console.error(`Error connecting to ${serverUrl}:`, error instanceof Error ? error.message : String(error));
+    console.error(
+      `Error connecting to ${serverUrl}:`,
+      error instanceof Error ? error.message : String(error)
+    );
     Deno.exit(1);
   }
 
@@ -202,7 +271,13 @@ async function main() {
         }
       } catch (error) {
         ws.close();
-        reject(new Error(`Invalid response: ${error instanceof Error ? error.message : String(error)}`));
+        reject(
+          new Error(
+            `Invalid response: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          )
+        );
       }
     };
 
@@ -215,7 +290,9 @@ async function main() {
     ws.onclose = (event) => {
       clearTimeout(timeout);
       if (!event.wasClean) {
-        reject(new Error(`Connection closed unexpectedly (code: ${event.code})`));
+        reject(
+          new Error(`Connection closed unexpectedly (code: ${event.code})`)
+        );
       }
     };
   });
@@ -236,7 +313,10 @@ async function main() {
 
     Deno.exit(0);
   } catch (error) {
-    console.error("Execution failed:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "Execution failed:",
+      error instanceof Error ? error.message : String(error)
+    );
     Deno.exit(1);
   }
 }

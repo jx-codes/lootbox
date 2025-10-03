@@ -13,7 +13,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "compile": "deno task ui:build && deno compile --allow-all --include ui/dist -o mcp-rpc-runtime src/main.ts",
-    "compile-exec": "deno compile --allow-net -o mcp-rpc-exec src/exec.ts",
+    "compile-exec": "deno compile --allow-all -o mcp-rpc-exec src/exec.ts",
     "ui:dev": "cd ui && deno run -A npm:vite",
     "ui:build": "cd ui && deno run -A npm:vite build",
     "ui:preview": "cd ui && deno run -A npm:vite preview"
@@ -36,6 +36,7 @@
     "@hono/zod-openapi": "npm:@hono/zod-openapi@^1.1.3",
     "@hono/swagger-ui": "npm:@hono/swagger-ui@^0.5.2",
     "@std/cli": "jsr:@std/cli@^1.0.0",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
     "ts-morph": "npm:ts-morph@^23.0.0",
     "zod": "npm:zod@^4.1.11",
     "pothos": "https://esm.sh/@pothos/core@3.21.0",
