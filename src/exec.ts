@@ -61,9 +61,9 @@ function wsUrlToHttpUrl(wsUrl: string): string {
 function showHelp() {
   console.log(`lootbox - Sandboxed TypeScript runtime with network access
 
-Write scripts with fetch() for web requests and the 'tools' object for MCP
-servers and other functions. Network-only sandbox (no file system access)
-keeps your system safe while you orchestrate, fetch, and transform data.
+Write scripts with fetch() for web requests and the 'tools' object for
+additional capabilities. Sandboxed execution keeps your system safe while
+you orchestrate, fetch, and transform data.
 
 Usage:
   lootbox [OPTIONS] [FILE]
@@ -73,12 +73,13 @@ Usage:
 Execution Environment:
   • Runtime: Deno sandbox with TypeScript support
   • Network: fetch() available for HTTP requests
-  • Permissions: Network access only (no file system, env vars, etc.)
+  • Sandbox: Direct file system and environment access disabled
   • Timeout: 10 second execution limit
   • Global APIs: console, fetch, Promise, standard JavaScript/TypeScript APIs
 
 Function Library (tools object):
   The 'tools' object provides access to functions organized by namespace.
+  Available namespaces depend on your configuration.
   Syntax: tools.<namespace>.<function>({ args })
 
   Examples:
