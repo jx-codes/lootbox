@@ -2,6 +2,7 @@
 /cache/
 __cache__/
 deno_dir/
+analysis
 
 # Logs
 *.log

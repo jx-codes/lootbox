@@ -30,7 +30,7 @@ export class ClientGenerator {
    */
   generateFullClient(
     extractionResults: ExtractionResult[],
-    options: Partial<ClientGeneratorOptions> = {},
+    options: Partial<ClientGeneratorOptions> = {}
   ): string {
     const opts = { ...this.defaultOptions, ...options };
 
@@ -53,7 +53,7 @@ export class ClientGenerator {
   generateFullClientWithMcp(
     rpcResults: ExtractionResult[],
     mcpResults: ExtractionResult[],
-    options: Partial<ClientGeneratorOptions> = {},
+    options: Partial<ClientGeneratorOptions> = {}
   ): string {
     const opts = { ...this.defaultOptions, ...options };
 
@@ -107,29 +107,13 @@ export class ClientGenerator {
     mcpResults: ExtractionResult[],
     port: number
   ): string {
-    let code = `// TypeScript execution environment
-// - Deno runtime with standard APIs (fetch, console, etc.)
-// - Network access enabled
-// - RPC client 'rpc' is available (injected automatically)
-//
-// Usage examples:
-//   const result = await rpc.namespace.function({ arg: value });
-//
-//   // Run independent tasks concurrently:
-//   const [data1, data2] = await Promise.all([
-//     rpc.namespace.function1({ arg: value }),
-//     rpc.namespace.function2({ arg: value })
-//   ]);
-
-`;
-
+    let code = ``;
     const allResults = [...rpcResults, ...mcpResults];
     code += this.generateInterfaces(allResults);
     code += this.generateRpcClientInterfaceWithMcp(rpcResults, mcpResults);
 
     return code;
   }
-
 
   /**
    * Generate file header
@@ -156,7 +140,11 @@ export class ClientGenerator {
 
         for (const prop of iface.properties) {
           const optional = prop.isOptional ? "?" : "";
-          const prefixedType = this.prefixTypesInResult(prop.type, result, prefix);
+          const prefixedType = this.prefixTypesInResult(
+            prop.type,
+            result,
+            prefix
+          );
           code += `  ${prop.name}${optional}: ${prefixedType};\n`;
         }
 
@@ -178,14 +166,16 @@ export class ClientGenerator {
    * Extract namespace from source file path
    */
   private extractNamespace(sourceFile: string): string {
-    const filename = sourceFile.split('/').pop() || sourceFile;
-    return filename.replace('.ts', '').replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = sourceFile.split("/").pop() || sourceFile;
+    return filename.replace(".ts", "").replace(/[^a-zA-Z0-9]/g, "_");
   }
 
   /**
    * Group functions by namespace
    */
-  private groupFunctionsByNamespace(results: ExtractionResult[]): Record<string, ExtractionResult[]> {
+  private groupFunctionsByNamespace(
+    results: ExtractionResult[]
+  ): Record<string, ExtractionResult[]> {
     const grouped: Record<string, ExtractionResult[]> = {};
 
     for (const result of results) {
@@ -213,8 +203,16 @@ export class ClientGenerator {
         const prefix = this.capitalizeNamespace(namespace);
 
         for (const func of result.functions) {
-          const paramType = this.prefixTypesInResult(this.extractDataType(func.parameters[0]?.type || "unknown"), result, prefix);
-          const returnType = this.prefixTypesInResult(this.formatReturnType(func.returnType, func.isAsync), result, prefix);
+          const paramType = this.prefixTypesInResult(
+            this.extractDataType(func.parameters[0]?.type || "unknown"),
+            result,
+            prefix
+          );
+          const returnType = this.prefixTypesInResult(
+            this.formatReturnType(func.returnType, func.isAsync),
+            result,
+            prefix
+          );
 
           code += `    ${func.name}(args: ${paramType}): ${returnType};\n`;
         }
@@ -230,11 +228,15 @@ export class ClientGenerator {
   /**
    * Prefix interface names from this specific result
    */
-  private prefixTypesInResult(typeString: string, result: ExtractionResult, prefix: string): string {
+  private prefixTypesInResult(
+    typeString: string,
+    result: ExtractionResult,
+    prefix: string
+  ): string {
     let updatedType = typeString;
 
     for (const iface of result.interfaces) {
-      const regex = new RegExp(`\\b${iface.name}\\b`, 'g');
+      const regex = new RegExp(`\\b${iface.name}\\b`, "g");
       updatedType = updatedType.replace(regex, `${prefix}_${iface.name}`);
     }
 
@@ -267,7 +269,9 @@ export class ClientGenerator {
   /**
    * Generate client implementation
    */
-  private generateClientImplementation(options: ClientGeneratorOptions): string {
+  private generateClientImplementation(
+    options: ClientGeneratorOptions
+  ): string {
     return `export interface RpcClientConfig {
   url?: string;
   timeout?: number;
@@ -481,26 +485,39 @@ function createRpcCall(method: string) {
   };
 }
 
-// Create namespaced RPC client
-export const rpc: RpcClient = {
-${Object.entries(grouped).map(([namespace, namespaceResults]) => {
-  const functions = namespaceResults.flatMap(result => {
-    const prefix = this.capitalizeNamespace(namespace);
-    return result.functions.map(func => {
-      const paramType = this.prefixTypesInResult(this.extractDataType(func.parameters[0]?.type || "unknown"), result, prefix);
-      const returnType = this.prefixTypesInResult(this.formatReturnType(func.returnType, func.isAsync), result, prefix);
-      return {
-        ...func,
-        typedSignature: `(args: ${paramType}) => ${returnType}`
-      };
+// Create namespaced tools client
+export const tools: RpcClient = {
+${Object.entries(grouped)
+  .map(([namespace, namespaceResults]) => {
+    const functions = namespaceResults.flatMap((result) => {
+      const prefix = this.capitalizeNamespace(namespace);
+      return result.functions.map((func) => {
+        const paramType = this.prefixTypesInResult(
+          this.extractDataType(func.parameters[0]?.type || "unknown"),
+          result,
+          prefix
+        );
+        const returnType = this.prefixTypesInResult(
+          this.formatReturnType(func.returnType, func.isAsync),
+          result,
+          prefix
+        );
+        return {
+          ...func,
+          typedSignature: `(args: ${paramType}) => ${returnType}`,
+        };
+      });
     });
-  });
-  const functionCalls = functions.map(func =>
-    `    ${func.name}: createRpcCall("${namespace}.${func.name}") as ${func.typedSignature}`
-  ).join(',\n');
+    const functionCalls = functions
+      .map(
+        (func) =>
+          `    ${func.name}: createRpcCall("${namespace}.${func.name}") as ${func.typedSignature}`
+      )
+      .join(",\n");
 
-  return `  ${namespace}: {\n${functionCalls}\n  }`;
-}).join(',\n')}
+    return `  ${namespace}: {\n${functionCalls}\n  }`;
+  })
+  .join(",\n")}
 };
 `;
   }
@@ -611,8 +628,8 @@ function createRpcCall(method: string) {
   };
 }
 
-// Create namespaced RPC client
-export const rpc: RpcClient = {
+// Create namespaced tools client
+export const tools: RpcClient = {
 ${proxySections.join(",\n")}
 };
 `;
@@ -636,7 +653,6 @@ export interface RpcResponse {
 `;
   }
 
-
   /**
    * Group functions by namespace and return available namespace names
    */
@@ -649,7 +665,7 @@ export interface RpcResponse {
 
     return {
       rpc: Object.keys(rpcGrouped),
-      mcp: Object.keys(mcpGrouped)
+      mcp: Object.keys(mcpGrouped),
     };
   }
 
@@ -663,13 +679,18 @@ export interface RpcResponse {
     const rpcGrouped = this.groupFunctionsByNamespace(rpcResults);
     const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
 
-    const buildNamespaceInfo = (grouped: Record<string, ExtractionResult[]>): NamespaceInfo[] => {
+    const buildNamespaceInfo = (
+      grouped: Record<string, ExtractionResult[]>
+    ): NamespaceInfo[] => {
       return Object.entries(grouped).map(([namespace, results]) => {
         // Count total functions across all results in this namespace
-        const functionCount = results.reduce((sum, result) => sum + result.functions.length, 0);
+        const functionCount = results.reduce(
+          (sum, result) => sum + result.functions.length,
+          0
+        );
 
         // Find the first result with metadata (usually there's only one file per namespace)
-        const metaResult = results.find(r => r.meta);
+        const metaResult = results.find((r) => r.meta);
         const meta = metaResult?.meta;
 
         return {
@@ -677,14 +698,14 @@ export interface RpcResponse {
           functionCount,
           description: meta?.description || "",
           useWhen: meta?.useWhen || "",
-          tags: meta?.tags || []
+          tags: meta?.tags || [],
         };
       });
     };
 
     return {
       rpc: buildNamespaceInfo(rpcGrouped),
-      mcp: buildNamespaceInfo(mcpGrouped)
+      mcp: buildNamespaceInfo(mcpGrouped),
     };
   }
 }

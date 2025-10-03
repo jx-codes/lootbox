@@ -1,137 +1,175 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useHealth, useNamespaces, useWebSocketStatus } from "@/lib/hooks";
-import { Activity, Database, Zap, History } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useHealth, useWebSocketStatus, useAvailableFunctions } from "@/lib/hooks";
+import { Activity, Zap, Database, CheckCircle, XCircle } from "lucide-react";
 
 export default function Dashboard() {
-  const { data: health } = useHealth();
-  const { data: namespaces } = useNamespaces();
+  const { data: health, isError: healthError } = useHealth();
   const { data: wsStatus } = useWebSocketStatus();
+  const availableFunctions = useAvailableFunctions();
 
-  const stats = [
-    {
-      title: "Server Status",
-      value: health?.status === "ok" ? "Healthy" : "Offline",
-      icon: Activity,
-      color: health?.status === "ok" ? "text-green-600" : "text-red-600",
-      bgColor: health?.status === "ok" ? "bg-green-100 dark:bg-green-900/20" : "bg-red-100 dark:bg-red-900/20",
-    },
-    {
-      title: "Total Namespaces",
-      value: (namespaces?.namespaces?.length || 0).toString(),
-      icon: Database,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100 dark:bg-blue-900/20",
-    },
-    {
-      title: "WebSocket",
-      value: wsStatus?.connected ? "Connected" : "Disconnected",
-      icon: Zap,
-      color: wsStatus?.connected ? "text-green-600" : "text-gray-600",
-      bgColor: wsStatus?.connected ? "bg-green-100 dark:bg-green-900/20" : "bg-gray-100 dark:bg-gray-900/20",
-    },
-    {
-      title: "Recent Executions",
-      value: "0",
-      icon: History,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100 dark:bg-purple-900/20",
-    },
-  ];
+  // Group functions by namespace
+  const namespaceMap = new Map<string, { name: string; count: number; type: string }>();
+  availableFunctions.forEach((fullName) => {
+    const [namespace] = fullName.split(".");
+    if (namespace) {
+      const existing = namespaceMap.get(namespace);
+      if (existing) {
+        existing.count++;
+      } else {
+        namespaceMap.set(namespace, {
+          name: namespace,
+          count: 1,
+          type: fullName.startsWith("mcp_") ? "mcp" : "rpc",
+        });
+      }
+    }
+  });
+
+  const namespaces = Array.from(namespaceMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  const isHealthy = health?.status === "ok";
+  const isConnected = wsStatus?.connected ?? false;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">
-          Overview of your RPC Runtime server
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <div className="container mx-auto p-8 max-w-5xl">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <Activity className="h-8 w-8 text-blue-600" />
+            <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">
+              RPC Runtime
+            </h1>
+          </div>
+          <p className="text-slate-600 dark:text-slate-400">
+            Real-time status dashboard
+          </p>
+        </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <Icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Namespaces Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Namespaces</CardTitle>
-          <CardDescription>RPC and MCP namespaces currently loaded</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {namespaces?.namespaces && namespaces.namespaces.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {namespaces.namespaces.map((ns) => (
+        {/* Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Server Health */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Server Health</CardTitle>
+                {isHealthy ? (
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                ) : (
+                  <XCircle className="h-6 w-6 text-red-600" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
                 <div
-                  key={ns.name}
-                  className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg"
+                  className={`h-3 w-3 rounded-full ${
+                    isHealthy
+                      ? "bg-green-600 animate-pulse"
+                      : "bg-red-600"
+                  }`}
+                />
+                <span
+                  className={`text-xl font-semibold ${
+                    isHealthy ? "text-green-600" : "text-red-600"
+                  }`}
                 >
-                  <div>
-                    <h3 className="font-medium text-slate-900 dark:text-slate-100">{ns.name}</h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                      {ns.functions.length} function{ns.functions.length !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      ns.type === "rpc"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                        : "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
-                    }`}
-                  >
-                    {ns.type.toUpperCase()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-slate-600 dark:text-slate-400">No namespaces loaded</p>
-          )}
-        </CardContent>
-      </Card>
+                  {isHealthy ? "Healthy" : healthError ? "Offline" : "Unknown"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common tasks and shortcuts</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <a
-            href="/ui/playground"
-            className="block p-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <h3 className="font-medium text-slate-900 dark:text-slate-100">Open Playground</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Execute TypeScript code with RPC functions
-            </p>
-          </a>
-          <a
-            href="/ui/explorer"
-            className="block p-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <h3 className="font-medium text-slate-900 dark:text-slate-100">Browse Functions</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Explore available RPC functions and their signatures
-            </p>
-          </a>
-        </CardContent>
-      </Card>
+          {/* WebSocket Connection */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">WebSocket</CardTitle>
+                <Zap className={`h-6 w-6 ${isConnected ? "text-green-600" : "text-slate-400"}`} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`h-3 w-3 rounded-full ${
+                    isConnected
+                      ? "bg-green-600 animate-pulse"
+                      : "bg-slate-400"
+                  }`}
+                />
+                <span
+                  className={`text-xl font-semibold ${
+                    isConnected ? "text-green-600" : "text-slate-600"
+                  }`}
+                >
+                  {isConnected ? "Connected" : "Disconnected"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Namespaces */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-blue-600" />
+              <CardTitle>Available Namespaces</CardTitle>
+            </div>
+            <CardDescription>
+              {namespaces.length} namespace{namespaces.length !== 1 ? "s" : ""} with{" "}
+              {availableFunctions.length} function{availableFunctions.length !== 1 ? "s" : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {namespaces.length === 0 ? (
+              <div className="text-center py-8 text-slate-600 dark:text-slate-400">
+                {isConnected ? "No namespaces loaded" : "Waiting for connection..."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {namespaces.map((ns) => (
+                  <div
+                    key={ns.name}
+                    className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                  >
+                    <div>
+                      <h3 className="font-medium text-slate-900 dark:text-slate-100">
+                        {ns.name}
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {ns.count} function{ns.count !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={
+                        ns.type === "rpc"
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                          : "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300"
+                      }
+                    >
+                      {ns.type.toUpperCase()}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-sm text-slate-600 dark:text-slate-400">
+          <p>
+            For script execution and advanced features, use the{" "}
+            <code className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+              mcp-rpc-exec
+            </code>{" "}
+            package
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

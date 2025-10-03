@@ -67,34 +67,48 @@ Usage:
   cat script.ts | mcp-rpc-exec
 
 Execution Environment:
-  • Runtime: Deno sandbox
+  • Runtime: Deno sandbox with TypeScript support
   • Network: fetch() available for HTTP requests
   • Permissions: Network access only (no file system, env vars, etc.)
   • Timeout: 10 second execution limit
-  • Available: rpc object (injected), console, fetch, Promise, standard APIs
+  • Global APIs: console, fetch, Promise, standard JavaScript/TypeScript APIs
+
+Function Library (tools object):
+  The 'tools' object provides access to functions organized by namespace.
+  Syntax: tools.<namespace>.<function>({ args })
+
+  Examples:
+    tools.namespace1.functionName({ arg1: value1, arg2: value2 })
+    tools.namespace2.anotherFunction({ param: "value" })
+
+  Discovery:
+    Use --namespaces to list all available namespaces
+    Use --types <namespace> to see TypeScript signatures for a namespace
 
 Options:
   -e, --eval <script>         Execute inline script
   -s, --server <url>          WebSocket server URL (default: ws://localhost:8080/ws)
-  --namespaces                List available RPC namespaces
+  --namespaces                List all namespaces available in tools object
   --types <ns1,ns2,...>       Show TypeScript types for specific namespaces
   --config-help               Show configuration file information
   -h, --help                  Show this help message
   -v, --version               Show version
 
 Examples:
-  # Execute scripts
-  mcp-rpc-exec script.ts
-  mcp-rpc-exec -e 'console.log(await rpc.math.add({a: 1, b: 2}))'
-  echo 'console.log(1+1)' | mcp-rpc-exec
-  mcp-rpc-exec --server ws://remote:8080/ws script.ts
-
-  # Discovery
+  # Discover available functions
   mcp-rpc-exec --namespaces
-  mcp-rpc-exec --types math,pokemon
+  mcp-rpc-exec --types namespace1,namespace2
 
-  # Using fetch in scripts
-  mcp-rpc-exec -e 'const data = await fetch("https://api.github.com/users/octocat").then(r => r.json()); console.log(data.name)'
+  # Execute scripts with tools
+  mcp-rpc-exec -e 'console.log(await tools.namespace1.functionName({arg: "value"}))'
+  mcp-rpc-exec script.ts
+  echo 'console.log(await tools.namespace2.anotherFunction({param: 123}))' | mcp-rpc-exec
+
+  # Parallel execution with Promise.all
+  mcp-rpc-exec -e 'const [r1, r2] = await Promise.all([tools.namespace1.func1({a:1}), tools.namespace2.func2({b:2})]); console.log(r1, r2)'
+
+  # Using fetch alongside tools
+  mcp-rpc-exec -e 'const data = await fetch("https://api.example.com/data").then(r => r.json()); console.log(data)'
 `);
 }
 

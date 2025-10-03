@@ -1,26 +1,33 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Layout from "./components/layout/Layout";
+import { useEffect } from "react";
 import Dashboard from "./pages/Dashboard";
-import Explorer from "./pages/Explorer";
-import Playground from "./pages/Playground";
-import History from "./pages/History";
-import Types from "./pages/Types";
-import Settings from "./pages/Settings";
+import { Toaster, toast } from "sonner";
+import { wsClient } from "./lib/websocket-client";
 
 function App() {
+  useEffect(() => {
+    // Subscribe to WebSocket events for toast notifications
+    const unsubscribe = wsClient.onMessage((message) => {
+      if (message.type === "functions_updated") {
+        const count = message.functions.length;
+        toast.success("Functions Updated", {
+          description: `${count} function${count !== 1 ? "s" : ""} now available`,
+        });
+      } else if (message.type === "welcome") {
+        const count = message.functions.length;
+        toast.info("Connected to RPC Server", {
+          description: `${count} function${count !== 1 ? "s" : ""} available`,
+        });
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/ui" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="explorer" element={<Explorer />} />
-          <Route path="playground" element={<Playground />} />
-          <Route path="history" element={<History />} />
-          <Route path="types" element={<Types />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <>
+      <Dashboard />
+      <Toaster richColors />
+    </>
   );
 }
 

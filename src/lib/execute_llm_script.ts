@@ -15,7 +15,7 @@ export const execute_llm_script = async (args: { script: string; sessionId?: str
   console.error(`📦 Using client from ${clientUrl} (version ${client.version})`);
 
   // Inject import statement at the top of the user script
-  const injectedScript = `import { rpc } from "${clientUrl}";\n\n// User script begins here\n${script}`;
+  const injectedScript = `import { tools } from "${clientUrl}";\n\n// User script begins here\n${script}`;
 
   const tempFile = await Deno.makeTempFile({ suffix: ".ts" });
   console.error(`📁 Created temp file: ${tempFile}`);
