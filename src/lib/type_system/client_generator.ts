@@ -157,9 +157,11 @@ export class ClientGenerator {
 
   /**
    * Capitalize namespace for prefixing
+   * Also sanitizes to ensure valid TypeScript identifiers
    */
   private capitalizeNamespace(namespace: string): string {
-    return namespace.charAt(0).toUpperCase() + namespace.slice(1);
+    const sanitized = namespace.replace(/[^a-zA-Z0-9_]/g, "_");
+    return sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
   }
 
   /**

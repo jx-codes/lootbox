@@ -76,7 +76,9 @@ function convertToolToFunction(
   func: FunctionSignature;
   argsInterface: InterfaceDefinition | null;
 } {
-  const interfaceName = `Mcp${capitalizeFirst(serverName)}_${capitalizeFirst(tool.name)}Args`;
+  const sanitizedServerName = sanitizeIdentifier(serverName);
+  const sanitizedToolName = sanitizeIdentifier(tool.name);
+  const interfaceName = `Mcp${capitalizeFirst(sanitizedServerName)}_${capitalizeFirst(sanitizedToolName)}Args`;
   const argsInterface = generateArgsInterface(interfaceName, tool.inputSchema);
 
   const func: FunctionSignature = {
@@ -115,7 +117,9 @@ function convertResourceToFunction(
   func: FunctionSignature;
   argsInterface: InterfaceDefinition | null;
 } {
-  const interfaceName = `Mcp${capitalizeFirst(serverName)}_Resource${capitalizeFirst(resource.name)}Args`;
+  const sanitizedServerName = sanitizeIdentifier(serverName);
+  const sanitizedResourceName = sanitizeIdentifier(resource.name);
+  const interfaceName = `Mcp${capitalizeFirst(sanitizedServerName)}_Resource${capitalizeFirst(sanitizedResourceName)}Args`;
 
   // Parse URI template if present, otherwise empty interface
   const argSchema = resource.uriTemplate
@@ -303,6 +307,14 @@ function generateMcpResultInterfaces(): InterfaceDefinition[] {
       sourceLocation: { line: 0, file: "mcp" },
     },
   ];
+}
+
+/**
+ * Sanitize string to be a valid TypeScript identifier
+ * Replaces hyphens and other invalid characters with underscores
+ */
+function sanitizeIdentifier(str: string): string {
+  return str.replace(/[^a-zA-Z0-9_]/g, "_");
 }
 
 /**
