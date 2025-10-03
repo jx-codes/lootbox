@@ -210,10 +210,10 @@ export class TypeGeneratorManager {
     let output = "Available Namespaces:\n\n";
     output += "<namespaces>\n";
 
-    // Combine RPC and MCP namespaces (MCP namespaces are prefixed with mcp_)
+    // Combine RPC and MCP namespaces (MCP already has mcp_ prefix from getNamespaceMetadata)
     const allNamespaces = [
       ...metadata.rpc,
-      ...metadata.mcp.map((ns) => ({ ...ns, name: `mcp_${ns.name}` })),
+      ...metadata.mcp,
     ];
 
     if (allNamespaces.length > 0) {

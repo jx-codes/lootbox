@@ -713,7 +713,7 @@ export interface RpcResponse {
 
     return {
       rpc: Object.keys(rpcGrouped),
-      mcp: Object.keys(mcpGrouped),
+      mcp: Object.keys(mcpGrouped).map(ns => `mcp_${ns}`),
     };
   }
 
@@ -728,7 +728,8 @@ export interface RpcResponse {
     const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
 
     const buildNamespaceInfo = (
-      grouped: Record<string, ExtractionResult[]>
+      grouped: Record<string, ExtractionResult[]>,
+      addPrefix: boolean = false
     ): NamespaceInfo[] => {
       return Object.entries(grouped).map(([namespace, results]) => {
         // Count total functions across all results in this namespace
@@ -742,7 +743,7 @@ export interface RpcResponse {
         const meta = metaResult?.meta;
 
         return {
-          name: namespace,
+          name: addPrefix ? `mcp_${namespace}` : namespace,
           functionCount,
           description: meta?.description || "",
           useWhen: meta?.useWhen || "",
@@ -752,8 +753,8 @@ export interface RpcResponse {
     };
 
     return {
-      rpc: buildNamespaceInfo(rpcGrouped),
-      mcp: buildNamespaceInfo(mcpGrouped),
+      rpc: buildNamespaceInfo(rpcGrouped, false),
+      mcp: buildNamespaceInfo(mcpGrouped, true),
     };
   }
 }
