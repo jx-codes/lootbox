@@ -230,7 +230,7 @@ export class TypeExtractor {
   }
 
   /**
-   * Validate that RPC function follows the required signature pattern: args: T
+   * Validate that RPC function follows the required signature pattern: 0 or 1 parameters
    */
   private validateRpcFunctionSignature(
     func: FunctionDeclaration,
@@ -239,21 +239,11 @@ export class TypeExtractor {
     const funcName = func.getName();
     const filePath = func.getSourceFile().getFilePath();
 
-    // Must have exactly one parameter
-    if (parameters.length !== 1) {
+    // Must have 0 or 1 parameter
+    if (parameters.length > 1) {
       throw new Error(
-        `RPC function '${funcName}' in ${filePath}:${func.getStartLineNumber()} must have exactly one parameter named 'args'. ` +
-          `Found ${parameters.length} parameters. Required signature: ${funcName}(args: T)`
-      );
-    }
-
-    const param = parameters[0];
-
-    // Parameter must be named 'args'
-    if (param.name !== "args") {
-      throw new Error(
-        `RPC function '${funcName}' in ${filePath}:${func.getStartLineNumber()} parameter must be named 'args'. ` +
-          `Found parameter name: '${param.name}'. Required signature: ${funcName}(args: T)`
+        `RPC function '${funcName}' in ${filePath}:${func.getStartLineNumber()} must have at most one parameter. ` +
+          `Found ${parameters.length} parameters. Required signature: ${funcName}() or ${funcName}(param: T)`
       );
     }
   }

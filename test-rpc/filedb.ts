@@ -1,9 +1,10 @@
 // Simple file-based database RPC functions
 // Each "table" is a JSON file, operations are atomic file reads/writes
 
-import { join } from "https://deno.land/std@0.208.0/path/mod.ts";
+import { join, resolve } from "https://deno.land/std@0.208.0/path/mod.ts";
 
-const DB_DIR = "./filedb_data";
+// Configure database directory (can be set via environment variables)
+const DB_DIR = resolve(Deno.env.get("FILEDB_DIR") || "./storage/filedb");
 
 // Ensure DB directory exists
 async function ensureDbDir() {

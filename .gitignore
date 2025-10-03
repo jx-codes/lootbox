@@ -13,11 +13,13 @@ npm/
 
 .env
 
+# RPC storage (all RPC data stored under this directory)
+storage/
+
 rpc-server
 lootbox-runtime
 lootbox-runtime.exe
 .claude
-filedb_data/
 script-history/
 lootbox
 lootbox.exe

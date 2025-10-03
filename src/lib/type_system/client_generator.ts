@@ -203,18 +203,24 @@ export class ClientGenerator {
         const prefix = this.capitalizeNamespace(namespace);
 
         for (const func of result.functions) {
-          const paramType = this.prefixTypesInResult(
-            this.extractDataType(func.parameters[0]?.type || "unknown"),
-            result,
-            prefix
-          );
           const returnType = this.prefixTypesInResult(
             this.formatReturnType(func.returnType, func.isAsync),
             result,
             prefix
           );
 
-          code += `    ${func.name}(args: ${paramType}): ${returnType};\n`;
+          // Handle 0 or 1 parameters
+          if (func.parameters.length === 0) {
+            code += `    ${func.name}(): ${returnType};\n`;
+          } else {
+            const param = func.parameters[0];
+            const paramType = this.prefixTypesInResult(
+              this.extractDataType(param.type),
+              result,
+              prefix
+            );
+            code += `    ${func.name}(${param.name}: ${paramType}): ${returnType};\n`;
+          }
         }
       }
 
@@ -401,18 +407,24 @@ const client = new SimpleRpcClient();
         const prefix = this.capitalizeNamespace(namespace);
 
         for (const func of result.functions) {
-          const paramType = this.prefixTypesInResult(
-            this.extractDataType(func.parameters[0]?.type || "unknown"),
-            result,
-            prefix
-          );
           const returnType = this.prefixTypesInResult(
             this.formatReturnType(func.returnType, func.isAsync),
             result,
             prefix
           );
 
-          code += `    ${func.name}(args: ${paramType}): ${returnType};\n`;
+          // Handle 0 or 1 parameters
+          if (func.parameters.length === 0) {
+            code += `    ${func.name}(): ${returnType};\n`;
+          } else {
+            const param = func.parameters[0];
+            const paramType = this.prefixTypesInResult(
+              this.extractDataType(param.type),
+              result,
+              prefix
+            );
+            code += `    ${func.name}(${param.name}: ${paramType}): ${returnType};\n`;
+          }
         }
       }
 
@@ -427,18 +439,24 @@ const client = new SimpleRpcClient();
         const prefix = this.capitalizeNamespace(namespace);
 
         for (const func of result.functions) {
-          const paramType = this.prefixTypesInResult(
-            this.extractDataType(func.parameters[0]?.type || "unknown"),
-            result,
-            prefix
-          );
           const returnType = this.prefixTypesInResult(
             this.formatReturnType(func.returnType, func.isAsync),
             result,
             prefix
           );
 
-          code += `    ${func.name}(args: ${paramType}): ${returnType};\n`;
+          // Handle 0 or 1 parameters
+          if (func.parameters.length === 0) {
+            code += `    ${func.name}(): ${returnType};\n`;
+          } else {
+            const param = func.parameters[0];
+            const paramType = this.prefixTypesInResult(
+              this.extractDataType(param.type),
+              result,
+              prefix
+            );
+            code += `    ${func.name}(${param.name}: ${paramType}): ${returnType};\n`;
+          }
         }
       }
 
@@ -492,19 +510,29 @@ ${Object.entries(grouped)
     const functions = namespaceResults.flatMap((result) => {
       const prefix = this.capitalizeNamespace(namespace);
       return result.functions.map((func) => {
-        const paramType = this.prefixTypesInResult(
-          this.extractDataType(func.parameters[0]?.type || "unknown"),
-          result,
-          prefix
-        );
         const returnType = this.prefixTypesInResult(
           this.formatReturnType(func.returnType, func.isAsync),
           result,
           prefix
         );
+
+        // Handle 0 or 1 parameters
+        let typedSignature: string;
+        if (func.parameters.length === 0) {
+          typedSignature = `() => ${returnType}`;
+        } else {
+          const param = func.parameters[0];
+          const paramType = this.prefixTypesInResult(
+            this.extractDataType(param.type),
+            result,
+            prefix
+          );
+          typedSignature = `(${param.name}: ${paramType}) => ${returnType}`;
+        }
+
         return {
           ...func,
-          typedSignature: `(args: ${paramType}) => ${returnType}`,
+          typedSignature,
         };
       });
     });
@@ -539,19 +567,29 @@ ${Object.entries(grouped)
       const functions = namespaceResults.flatMap((result) => {
         const prefix = this.capitalizeNamespace(namespace);
         return result.functions.map((func) => {
-          const paramType = this.prefixTypesInResult(
-            this.extractDataType(func.parameters[0]?.type || "unknown"),
-            result,
-            prefix
-          );
           const returnType = this.prefixTypesInResult(
             this.formatReturnType(func.returnType, func.isAsync),
             result,
             prefix
           );
+
+          // Handle 0 or 1 parameters
+          let typedSignature: string;
+          if (func.parameters.length === 0) {
+            typedSignature = `() => ${returnType}`;
+          } else {
+            const param = func.parameters[0];
+            const paramType = this.prefixTypesInResult(
+              this.extractDataType(param.type),
+              result,
+              prefix
+            );
+            typedSignature = `(${param.name}: ${paramType}) => ${returnType}`;
+          }
+
           return {
             ...func,
-            typedSignature: `(args: ${paramType}) => ${returnType}`,
+            typedSignature,
           };
         });
       });
@@ -571,19 +609,29 @@ ${Object.entries(grouped)
       const functions = namespaceResults.flatMap((result) => {
         const prefix = this.capitalizeNamespace(namespace);
         return result.functions.map((func) => {
-          const paramType = this.prefixTypesInResult(
-            this.extractDataType(func.parameters[0]?.type || "unknown"),
-            result,
-            prefix
-          );
           const returnType = this.prefixTypesInResult(
             this.formatReturnType(func.returnType, func.isAsync),
             result,
             prefix
           );
+
+          // Handle 0 or 1 parameters
+          let typedSignature: string;
+          if (func.parameters.length === 0) {
+            typedSignature = `() => ${returnType}`;
+          } else {
+            const param = func.parameters[0];
+            const paramType = this.prefixTypesInResult(
+              this.extractDataType(param.type),
+              result,
+              prefix
+            );
+            typedSignature = `(${param.name}: ${paramType}) => ${returnType}`;
+          }
+
           return {
             ...func,
-            typedSignature: `(args: ${paramType}) => ${returnType}`,
+            typedSignature,
           };
         });
       });
