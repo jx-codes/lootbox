@@ -6,6 +6,14 @@ export interface McpServerConfig {
   env?: Record<string, string>;
 }
 
+/**
+ * Sanitize server name to be a valid identifier
+ * Replaces hyphens and other invalid characters with underscores
+ */
+function sanitizeServerName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_]/g, "_");
+}
+
 export interface McpConfigFile {
   mcpServers: Record<string, McpServerConfig>;
 }
@@ -100,7 +108,12 @@ export function validateMcpConfig(config: unknown): McpConfigFile {
       validatedConfig.env = env as Record<string, string>;
     }
 
-    validated[serverName] = validatedConfig;
+    // Sanitize server name to ensure it's a valid identifier
+    const sanitizedName = sanitizeServerName(serverName);
+    if (sanitizedName !== serverName) {
+      console.error(`Sanitized MCP server name: '${serverName}' -> '${sanitizedName}'`);
+    }
+    validated[sanitizedName] = validatedConfig;
   }
 
   return { mcpServers: validated };
