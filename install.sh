@@ -26,7 +26,7 @@ echo "📂 Using temp directory: $TEMP_DIR"
 
 # Clone repository
 echo "📥 Cloning repository..."
-git clone https://github.com/jx-codes/lootbox.git "$TEMP_DIR"
+git clone https://github.com/jx-codes/mcp-rpc-runtime.git "$TEMP_DIR"
 
 # Navigate to project directory
 cd "$TEMP_DIR"
