@@ -3,6 +3,7 @@
 __cache__/
 deno_dir/
 analysis
+.DS_Store
 
 # Logs
 *.log

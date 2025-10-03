@@ -1,6 +1,12 @@
 # Lootbox
 
-A TypeScript WebSocket RPC server that enables LLMs to execute code instead of using traditional tool calling. This project implements the "Code Mode" approach inspired by Cloudflare's innovative MCP research, where LLMs write TypeScript code to call APIs rather than using direct tool invocation.
+> Lootbox looks so cool! Can I have a lootbox?
+>
+> _Totally real Claude Code Quote_
+
+## What it is
+
+A **local-first** TypeScript WebSocket RPC server that enables LLMs to execute code instead of using traditional tool calling. Runs entirely on your machine with your own functions. This project implements the "Code Mode" approach inspired by Cloudflare's MCP research, where LLMs write TypeScript code to call APIs rather than using direct tool invocation.
 
 ## Why Code Mode?
 
@@ -24,17 +30,17 @@ A lightweight command-line tool for one-shot script execution via WebSocket.
 ```bash
 # Execute scripts directly
 lootbox script.ts
-lootbox -e 'console.log(await rpc.slack.sendMessage({channelId: "C123", text: "Hello!"}))'
+lootbox -e 'console.log(await tools.kv.get({key: "mykey"}))'
 cat script.ts | lootbox
 
 # Discover available functions
 lootbox --namespaces
-lootbox --types slack,stripe
+lootbox --types fs,kv,sqlite
 ```
 
-### 3. **Web UI** (Dashboard & Playground)
+### 3. **Web UI** (Status Dashboard)
 
-Modern React interface for interactive RPC exploration, script execution, and server monitoring at `http://localhost:8080/ui`.
+React-based status dashboard showing server health, WebSocket connection status, and available namespaces at `http://localhost:8080/ui`.
 
 ## Architecture
 
@@ -45,7 +51,7 @@ Modern React interface for interactive RPC exploration, script execution, and se
 │ • Web UI    │◄────────►│                 │◄────────►│                 │
 │ • CLI Tool  │    WS    │ • Auto-discover │          │ • test-rpc/*.ts │
 │ • LLM/MCP   │  HTTP    │ • Type gen      │   Load   │ • External MCP  │
-│             │          │ • Sandboxing    │          │   (optional)    │
+│             │          │ • Sandboxing    │          │                 │
 └─────────────┘          └─────────────────┘          └─────────────────┘
 ```
 
@@ -54,19 +60,40 @@ Modern React interface for interactive RPC exploration, script execution, and se
 - WebSocket RPC server with auto-discovery and type generation
 - Persistent worker processes for fast RPC execution
 - Sandboxed script execution with 10-second timeout
-- Optional MCP server integration (Zendesk, Slack, etc.)
+- MCP server integration (filesystem, GitHub, etc.)
 - OpenAPI/Swagger documentation
 
-## Quick Start
+## Prerequisites
 
-### Installation
+- [Deno 2.x](https://deno.com/) or later
+- Git (for cloning the repository)
+- Node.js/npm (optional, only for UI development)
 
-Requires [Deno 2.x](https://deno.com/):
+## Installation
+
+### Option 1: Quick Install (Recommended)
+
+Install globally using the provided script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jx-codes/lootbox/main/install.sh | bash
+```
+
+This installs both `lootbox-runtime` and `lootbox` CLI to `~/.deno/bin/`.
+
+### Option 2: Manual Installation
+
+Clone and build from source:
 
 ```bash
 git clone https://github.com/jx-codes/lootbox
 cd lootbox
+deno task compile
 ```
+
+The compiled binaries `lootbox-runtime` and `lootbox` will be created in the project root.
+
+## Quick Start
 
 ### 1. Start the Server
 
@@ -98,25 +125,18 @@ export async function processData(args: {
 
 ### 3. Use the Runtime
 
-**Option A: Web UI (Easiest)**
-
-```bash
-# Open browser to http://localhost:8080/ui
-# Use the Playground to write and execute scripts interactively
-```
-
-**Option B: CLI Tool**
+**Option A: CLI Tool**
 
 ```bash
 # Compile the CLI tool
 deno task compile-exec
 
 # Execute scripts
-./lootbox -e 'console.log(await rpc.myapi.processData({items: ["a", "bb", "ccc"], threshold: 1}))'
+./lootbox -e 'console.log(await tools.myapi.processData({items: ["a", "bb", "ccc"], threshold: 1}))'
 ./lootbox script.ts
 ```
 
-**Option C: Direct WebSocket**
+**Option B: Direct WebSocket**
 
 ```javascript
 const ws = new WebSocket("ws://localhost:8080/ws");
@@ -124,7 +144,7 @@ ws.onopen = () => {
   ws.send(
     JSON.stringify({
       script:
-        'console.log(await rpc.myapi.processData({items: ["hello"], threshold: 0}))',
+        'console.log(await tools.myapi.processData({items: ["hello"], threshold: 0}))',
       id: "exec_1",
     })
   );
@@ -139,7 +159,7 @@ The server automatically discovers exported TypeScript functions:
 
 ```typescript
 // Discovers all exported functions from RPC directory
-// Functions become: namespace.functionName (e.g., math.add, weather.getCurrentWeather)
+// Functions become: namespace.functionName (e.g., kv.get, sqlite.query, fs.readFile)
 ```
 
 ### 🏷️ Type Safety
@@ -148,19 +168,36 @@ Full TypeScript type extraction with namespace prefixing:
 
 ```typescript
 // Generated client includes full type definitions
-export interface Math_AddArgs {
-  a: number;
-  b: number;
+export interface Kv_SetArgs {
+  key: string;
+  value: unknown;
+}
+export interface Kv_SetResult {
+  success: boolean;
+  key: string;
+}
+export interface Sqlite_QueryArgs {
+  sql: string;
+  params?: unknown[];
+}
+export interface Sqlite_QueryResult {
+  rows: Record<string, unknown>[];
+  columns: string[];
+  rowCount: number;
 }
 export interface RpcClient {
-  math: {
-    add(args: Math_AddArgs): Promise<number>;
-    multiply(args: Math_MultiplyArgs): Promise<number>;
+  kv: {
+    get(args: Kv_GetArgs): Promise<Kv_GetResult>;
+    set(args: Kv_SetArgs): Promise<Kv_SetResult>;
+    list(args: Kv_ListArgs): Promise<Kv_ListResult>;
   };
-  weather: {
-    getCurrentWeather(
-      args: Weather_CurrentWeatherArgs
-    ): Promise<Weather_WeatherResult>;
+  sqlite: {
+    execute(args: Sqlite_ExecuteArgs): Promise<Sqlite_ExecuteResult>;
+    query(args: Sqlite_QueryArgs): Promise<Sqlite_QueryResult>;
+  };
+  fs: {
+    readFile(args: Fs_ReadFileArgs): Promise<Fs_ReadFileResult>;
+    writeFile(args: Fs_WriteFileArgs): Promise<Fs_WriteFileResult>;
   };
 }
 ```
@@ -175,8 +212,8 @@ const ws = new WebSocket("ws://localhost:8080/ws");
 // Direct RPC call
 ws.send(
   JSON.stringify({
-    method: "math.add",
-    args: { a: 5, b: 3 },
+    method: "kv.get",
+    args: { key: "mykey" },
     id: "call_123",
   })
 );
@@ -185,10 +222,10 @@ ws.send(
 ws.send(
   JSON.stringify({
     script: `
-    const result = await rpc.math.add({ a: 10, b: 20 });
-    const weather = await rpc.weather.getCurrentWeather({ location: 'San Francisco' });
-    console.log('Math result:', result);
-    console.log('Weather:', weather);
+    const result = await tools.kv.get({ key: 'user:123' });
+    const count = await tools.kv.count({ prefix: 'user:' });
+    console.log('User data:', result);
+    console.log('Total users:', count.count);
   `,
     sessionId: "user-session-123", // Optional: associate script with a session
     id: "script_456",
@@ -198,52 +235,65 @@ ws.send(
 
 ### 🎬 Script Execution
 
-Execute complete TypeScript workflows with injected RPC client:
+Execute complete TypeScript workflows with injected tools client:
 
 ```typescript
 // This TypeScript code runs in a sandboxed environment
-// with the 'rpc' object automatically available
+// with the 'tools' object automatically available
 
-const team = ["charizard", "blastoise", "venusaur"];
-const pokemonData = [];
+const userIds = ["alice", "bob", "charlie"];
+const userData = [];
 
-for (const name of team) {
-  const pokemon = await rpc.pokemon.fetchPokemon({ name });
-  pokemonData.push(pokemon);
+for (const id of userIds) {
+  const result = await tools.kv.get({ key: `user:${id}` });
+  if (result.exists) {
+    userData.push(result.value);
+  }
 }
 
-const analysis = await rpc.pokemon.analyzeTeam({ teamNames: team });
-const sum = await rpc.math.add({ a: analysis.team.length, b: 10 });
+// Store aggregated data in SQLite
+await tools.sqlite.execute({
+  sql: "CREATE TABLE IF NOT EXISTS user_summary (count INTEGER, timestamp TEXT)",
+});
 
-console.log(`Analyzed ${team.length} Pokemon. Total with bonus: ${sum}`);
-console.log("Team strengths:", analysis.strengths);
+await tools.sqlite.execute({
+  sql: "INSERT INTO user_summary (count, timestamp) VALUES (?, ?)",
+  params: [userData.length, new Date().toISOString()],
+});
+
+console.log(`Processed ${userData.length} users`);
 ```
 
 ## HTTP API Endpoints
 
-| Endpoint             | Description                         | Response                           |
-| -------------------- | ----------------------------------- | ---------------------------------- |
-| `/health`            | Server health check                 | `{ status: "ok" }`                 |
-| `/namespaces`        | List available RPC & MCP namespaces | `{ rpc: [...], mcp: [...] }`       |
-| `/rpc/namespaces`    | Metadata for RPC functions          | Human-readable function signatures |
-| `/types`             | All TypeScript type definitions     | Full TypeScript interfaces         |
-| `/types/:namespaces` | Types for specific namespaces       | Filtered TypeScript interfaces     |
-| `/client.ts`         | Generated TypeScript client         | Full RPC client with types         |
-| `/ui`                | Web dashboard                       | React SPA interface                |
-| `/doc`               | OpenAPI/Swagger documentation       | Interactive API docs               |
-| `/ws`                | WebSocket endpoint                  | Script execution & RPC calls       |
+| Endpoint             | Description                         | Response                             |
+| -------------------- | ----------------------------------- | ------------------------------------ |
+| `/health`            | Server health check                 | `{ status: "ok", functions: [...] }` |
+| `/namespaces`        | List available RPC & MCP namespaces | `{ rpc: [...], mcp: [...] }`         |
+| `/rpc-namespaces`    | Metadata for RPC functions          | Human-readable function signatures   |
+| `/types`             | All TypeScript type definitions     | Full TypeScript interfaces           |
+| `/types/:namespaces` | Types for specific namespaces       | Filtered TypeScript interfaces       |
+| `/client.ts`         | Generated TypeScript client         | Full RPC client with types           |
+| `/ui`                | Status dashboard                    | React SPA interface                  |
+| `/doc`               | OpenAPI/Swagger documentation       | Interactive API docs                 |
+| `/ws`                | WebSocket endpoint                  | Script execution & RPC calls         |
 
 ## RPC Function Requirements
 
 All RPC functions must follow this pattern:
 
 ```typescript
-// ✅ Correct
+// ✅ Correct - with parameter
 export async function functionName(args: ArgsType): Promise<ReturnType> {
   // Implementation
 }
 
-// ✅ Also correct (synchronous)
+// ✅ Correct - no parameters
+export async function getInfo(): Promise<InfoResult> {
+  return { version: "1.0.0" };
+}
+
+// ✅ Correct - synchronous with parameter
 export function simpleCalc(args: { x: number }): number {
   return args.x * 2;
 }
@@ -255,45 +305,50 @@ async function privateFunction(args: any) {}
 export function wrongSignature(x: number, y: string) {}
 ```
 
+**Requirements:**
+
+- Must be exported
+- Must be async or sync (returning Promise or value)
+- Must have 0 or 1 parameter (if 1 parameter, it should be an object)
+- Multiple parameters are not supported
+
 ## Example RPC Functions
 
-The `test-rpc/` directory includes production-ready examples:
+The `test-rpc/` directory includes example implementations:
 
-### Service Integrations
-
-- **`slack.ts`**: Send messages, list channels, rich notifications (25+ functions)
-- **`stripe.ts`**: Customer lookups, subscriptions, payment health checks
-- **`zendesk.ts`**: Ticket management, customer queries, comment handling
-- **`linear.ts`**: Issue tracking, project management integration
-- **`sendgrid.ts`**: Email sending, templates, transactional emails
-
-### Data & Utilities
-
-- **`filedb.ts`**: JSON-based lightweight database with SQL-like operations
+- **`fs.ts`**: Filesystem operations with access controls (read, write, list, delete files)
+- **`kv.ts`**: Simple key-value store using JSON file storage (get, set, delete, list keys)
+- **`sqlite.ts`**: SQLite database operations (execute SQL, query data)
 
 ### Example Usage
 
 ```typescript
-// Multi-service workflow via Web UI or CLI
-const ticket = await rpc.zendesk.getTicket({ ticketId: 12345 });
-const customer = await rpc.stripe.getCustomer({
-  customerId: ticket.customerId,
+// Create a table and insert data
+await tools.sqlite.execute({
+  sql: "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)",
 });
 
-// Create Linear issue from Zendesk ticket
-const issue = await rpc.linear.createIssue({
-  title: ticket.subject,
-  description: `Zendesk #${ticket.id}\nCustomer: ${customer.email}`,
-  priority: 1,
+await tools.sqlite.execute({
+  sql: "INSERT INTO users (name, email) VALUES (?, ?)",
+  params: ["Alice", "alice@example.com"],
 });
 
-// Notify team via Slack
-await rpc.slack.sendMessage({
-  channelId: "C123",
-  text: `New high-priority issue created: ${issue.url}`,
+// Query the data
+const result = await tools.sqlite.query({
+  sql: "SELECT * FROM users WHERE name = ?",
+  params: ["Alice"],
 });
 
-console.log("Ticket escalated successfully!");
+console.log("Found users:", result.rows);
+
+// Store data in KV store
+await tools.kv.set({
+  key: "user:alice",
+  value: { name: "Alice", active: true },
+});
+const userData = await tools.kv.get({ key: "user:alice" });
+
+console.log("User data:", userData.value, "exists:", userData.exists);
 ```
 
 ## Configuration
@@ -353,7 +408,7 @@ deno task fmt             # Format code
 deno task lint            # Lint code
 ```
 
-## MCP Server Integration (Optional)
+## MCP Server Integration
 
 The runtime can integrate external MCP servers alongside local RPC functions:
 
@@ -380,12 +435,12 @@ Start server with MCP integration:
 deno task start --mcp-config mcp-servers.json
 ```
 
-Access MCP tools via namespaced RPC calls:
+Access MCP tools via namespaced calls:
 
 ```typescript
-// MCP tools appear as mcp.{servername}.{toolname}
-await rpc.mcp.filesystem.read_file({ path: "/etc/hosts" });
-await rpc.mcp.github.create_issue({ repo: "owner/repo", title: "Bug" });
+// MCP tools appear as mcp_{servername}.{toolname}
+await tools.mcp_filesystem.read_file({ path: "/etc/hosts" });
+await tools.mcp_github.create_issue({ repo: "owner/repo", title: "Bug" });
 ```
 
 ## Technical Details
@@ -402,7 +457,7 @@ await rpc.mcp.github.create_issue({ repo: "owner/repo", title: "Bug" });
 - **Isolated Execution**: User scripts run in separate Deno processes
 - **Limited Permissions**: Scripts only have `--allow-net` (network access)
 - **10-Second Timeout**: Automatic termination for long-running scripts
-- **Injected RPC Client**: `rpc` object automatically available in script scope
+- **Injected Tools Client**: `tools` object automatically available in script scope
 
 ### Type System
 
@@ -420,9 +475,11 @@ await rpc.mcp.github.create_issue({ repo: "owner/repo", title: "Bug" });
 
 ### Security Considerations
 
+**Local-First Design**: Lootbox is designed to run on your local machine in trusted environments. All execution happens locally with your own functions.
+
 - **RPC Functions**: Run with `--allow-all` - only include trusted code
 - **User Scripts**: Sandboxed with `--allow-net` only
-- **No Authentication**: WebSocket has no auth - use in trusted environments or behind firewall
+- **No Authentication**: WebSocket has no built-in auth - designed for localhost use
 - **MCP Servers**: External processes with configurable permissions
 
 ## Project Structure
@@ -448,7 +505,7 @@ src/
 │   │   ├── managers/                    # Modular server components
 │   │   │   ├── connection_manager.ts    # WebSocket connections
 │   │   │   ├── message_router.ts        # WS message routing
-│   │   │   ├── route_handler.ts         # HTTP route handlers
+│   │   │   ├── route_handler.ts         # HTTP route handlers (deprecated)
 │   │   │   ├── openapi_route_handler.ts # OpenAPI/Swagger routes
 │   │   │   ├── file_watcher_manager.ts  # Hot-reload for RPC files
 │   │   │   ├── type_generator_manager.ts# Type generation
@@ -467,17 +524,15 @@ src/
 │       ├── client_generator.ts          # Client code generation
 │       ├── documentation_extractor.ts   # JSDoc extraction
 │       ├── namespace_filter.ts          # Selective type filtering
+│       ├── file_system_adapter.ts       # File system operations
 │       └── types.ts                     # Shared type definitions
 ├── test-rpc/                            # Example RPC functions
-│   ├── filedb.ts                        # JSON database
-│   ├── slack.ts                         # Slack integration
-│   ├── stripe.ts                        # Stripe payments
-│   ├── zendesk.ts                       # Zendesk support
-│   ├── linear.ts                        # Linear issues
-│   └── sendgrid.ts                      # Email sending
+│   ├── fs.ts                            # Filesystem operations
+│   ├── kv.ts                            # Key-value store
+│   └── sqlite.ts                        # SQLite database
 └── ui/                                  # React Web UI
     ├── src/
-    │   ├── pages/                       # Dashboard, Playground, etc.
+    │   ├── pages/                       # Status Dashboard
     │   ├── components/                  # Reusable UI components
     │   └── lib/                         # API client, WebSocket client
     └── dist/                            # Built UI (production)
@@ -491,9 +546,10 @@ src/
 
 ```bash
 # Verify function signature: export async function name(args: Type): Promise<Result>
+# or: export async function name(): Promise<Result>
 # Check files are .ts and in --rpc-dir directory
 # Inspect discovered functions:
-curl http://localhost:8080/rpc/namespaces
+curl http://localhost:8080/rpc-namespaces
 lootbox --namespaces
 ```
 
@@ -528,8 +584,8 @@ websocat ws://localhost:8080/ws
 // Solution 1: Break into smaller RPC functions
 // Solution 2: Use Promise.all() for parallel calls
 const results = await Promise.all([
-  rpc.slack.sendMessage({...}),
-  rpc.stripe.getCustomer({...})
+  tools.kv.get({ key: "user1" }),
+  tools.kv.get({ key: "user2" }),
 ]);
 ```
 
