@@ -1,15 +1,15 @@
 #!/usr/bin/env -S deno run --allow-net --allow-read
 /**
- * mcp-rpc-exec - Lightweight WebSocket client for one-shot script execution
+ * lootbox - Lightweight WebSocket client for one-shot script execution
  *
  * Usage:
- *   mcp-rpc-exec script.ts                    # Execute file
- *   mcp-rpc-exec -e 'console.log(1+1)'       # Execute inline
- *   cat script.ts | mcp-rpc-exec              # Execute from stdin
- *   mcp-rpc-exec --server ws://host:9000/ws script.ts
+ *   lootbox script.ts                    # Execute file
+ *   lootbox -e 'console.log(1+1)'       # Execute inline
+ *   cat script.ts | lootbox              # Execute from stdin
+ *   lootbox --server ws://host:9000/ws script.ts
  *
  * Configuration:
- *   Reads from mcp-rpc-exec.config.json in current directory if present.
+ *   Reads from lootbox.config.json in current directory if present.
  *   Set "serverUrl" to configure default server.
  *   CLI --server flag overrides config file.
  */
@@ -59,12 +59,12 @@ function wsUrlToHttpUrl(wsUrl: string): string {
 }
 
 function showHelp() {
-  console.log(`mcp-rpc-exec - Execute TypeScript scripts via WebSocket RPC
+  console.log(`lootbox - Execute TypeScript scripts via WebSocket RPC
 
 Usage:
-  mcp-rpc-exec [OPTIONS] [FILE]
-  mcp-rpc-exec -e <script>
-  cat script.ts | mcp-rpc-exec
+  lootbox [OPTIONS] [FILE]
+  lootbox -e <script>
+  cat script.ts | lootbox
 
 Execution Environment:
   • Runtime: Deno sandbox with TypeScript support
@@ -96,31 +96,31 @@ Options:
 
 Examples:
   # Discover available functions
-  mcp-rpc-exec --namespaces
-  mcp-rpc-exec --types namespace1,namespace2
+  lootbox --namespaces
+  lootbox --types namespace1,namespace2
 
   # Execute scripts with tools
-  mcp-rpc-exec -e 'console.log(await tools.namespace1.functionName({arg: "value"}))'
-  mcp-rpc-exec script.ts
-  echo 'console.log(await tools.namespace2.anotherFunction({param: 123}))' | mcp-rpc-exec
+  lootbox -e 'console.log(await tools.namespace1.functionName({arg: "value"}))'
+  lootbox script.ts
+  echo 'console.log(await tools.namespace2.anotherFunction({param: 123}))' | lootbox
 
   # Parallel execution with Promise.all
-  mcp-rpc-exec -e 'const [r1, r2] = await Promise.all([tools.namespace1.func1({a:1}), tools.namespace2.func2({b:2})]); console.log(r1, r2)'
+  lootbox -e 'const [r1, r2] = await Promise.all([tools.namespace1.func1({a:1}), tools.namespace2.func2({b:2})]); console.log(r1, r2)'
 
   # Using fetch alongside tools
-  mcp-rpc-exec -e 'const data = await fetch("https://api.example.com/data").then(r => r.json()); console.log(data)'
+  lootbox -e 'const data = await fetch("https://api.example.com/data").then(r => r.json()); console.log(data)'
 `);
 }
 
 function showConfigHelp() {
-  console.log(`mcp-rpc-exec - Configuration
+  console.log(`lootbox - Configuration
 
-You can create a mcp-rpc-exec.config.json file in your project directory to set
-a default server URL. This is useful when using mcp-rpc-exec with Claude Code or
+You can create a lootbox.config.json file in your project directory to set
+a default server URL. This is useful when using lootbox with Claude Code or
 other tools where you don't want to specify the server URL every time.
 
 Configuration File:
-  File: mcp-rpc-exec.config.json (in current directory)
+  File: lootbox.config.json (in current directory)
   Format: JSON
 
 Example:
@@ -153,7 +153,7 @@ async function main() {
   }
 
   if (args.version) {
-    console.log("mcp-rpc-exec v1.0.0");
+    console.log("lootbox v1.0.0");
     Deno.exit(0);
   }
 
@@ -165,7 +165,7 @@ async function main() {
   // Load config file if present (silently ignore if not found)
   let config: Config = {};
   try {
-    const configText = await Deno.readTextFile("mcp-rpc-exec.config.json");
+    const configText = await Deno.readTextFile("lootbox.config.json");
     config = JSON.parse(configText);
   } catch {
     console.warn("Config file not found or not readable, use defaults");
@@ -238,9 +238,9 @@ async function main() {
     if (Deno.stdin.isTerminal()) {
       console.error("Error: No script provided");
       console.error(
-        "Usage: mcp-rpc-exec [file] or mcp-rpc-exec -e 'script' or pipe via stdin"
+        "Usage: lootbox [file] or lootbox -e 'script' or pipe via stdin"
       );
-      console.error("Run 'mcp-rpc-exec --help' for more information");
+      console.error("Run 'lootbox --help' for more information");
       Deno.exit(1);
     }
     // Read from stdin

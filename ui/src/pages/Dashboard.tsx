@@ -164,7 +164,7 @@ export default function Dashboard() {
           <p>
             For script execution and advanced features, use the{" "}
             <code className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-              mcp-rpc-exec
+              lootbox
             </code>{" "}
             package
           </p>

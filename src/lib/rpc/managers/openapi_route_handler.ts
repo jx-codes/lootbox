@@ -250,9 +250,9 @@ export class OpenApiRouteHandler {
       openapi: "3.1.0",
       info: {
         version: "1.0.0",
-        title: "MCP RPC Runtime API",
+        title: "Lootbox API",
         description:
-          "REST API for the MCP RPC Runtime server. Provides TypeScript type definitions, RPC client code generation, namespace discovery, and server health monitoring.",
+          "REST API for the Lootbox server. Provides TypeScript type definitions, RPC client code generation, namespace discovery, and server health monitoring.",
       },
       servers: [
         {

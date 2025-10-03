@@ -1,4 +1,4 @@
-# MCP RPC Runtime
+# Lootbox
 
 A TypeScript WebSocket RPC server that enables LLMs to execute code instead of using traditional tool calling. This project implements the "Code Mode" approach inspired by Cloudflare's innovative MCP research, where LLMs write TypeScript code to call APIs rather than using direct tool invocation.
 
@@ -13,23 +13,23 @@ Traditional MCP implementations require LLMs to use special tool-calling tokens 
 
 ## Core Components
 
-### 1. **mcp-rpc-runtime** (WebSocket Server)
+### 1. **lootbox-runtime** (WebSocket Server)
 
 The main RPC server that auto-discovers TypeScript functions, generates type definitions, and executes scripts in isolated sandboxes.
 
-### 2. **mcp-rpc-exec** (CLI Client)
+### 2. **lootbox** (CLI Client)
 
 A lightweight command-line tool for one-shot script execution via WebSocket.
 
 ```bash
 # Execute scripts directly
-mcp-rpc-exec script.ts
-mcp-rpc-exec -e 'console.log(await rpc.slack.sendMessage({channelId: "C123", text: "Hello!"}))'
-cat script.ts | mcp-rpc-exec
+lootbox script.ts
+lootbox -e 'console.log(await rpc.slack.sendMessage({channelId: "C123", text: "Hello!"}))'
+cat script.ts | lootbox
 
 # Discover available functions
-mcp-rpc-exec --namespaces
-mcp-rpc-exec --types slack,stripe
+lootbox --namespaces
+lootbox --types slack,stripe
 ```
 
 ### 3. **Web UI** (Dashboard & Playground)
@@ -40,7 +40,7 @@ Modern React interface for interactive RPC exploration, script execution, and se
 
 ```
 ┌─────────────┐          ┌─────────────────┐          ┌─────────────────┐
-│   Clients   │          │ mcp-rpc-runtime │          │  RPC Functions  │
+│   Clients   │          │     lootbox     │          │  RPC Functions  │
 │             │          │  (This Server)  │          │   & MCP Servers │
 │ • Web UI    │◄────────►│                 │◄────────►│                 │
 │ • CLI Tool  │    WS    │ • Auto-discover │          │ • test-rpc/*.ts │
@@ -64,8 +64,8 @@ Modern React interface for interactive RPC exploration, script execution, and se
 Requires [Deno 2.x](https://deno.com/):
 
 ```bash
-git clone https://github.com/jx-codes/mcp-rpc-runtime
-cd mcp-rpc-runtime
+git clone https://github.com/jx-codes/lootbox
+cd lootbox
 ```
 
 ### 1. Start the Server
@@ -112,8 +112,8 @@ export async function processData(args: {
 deno task compile-exec
 
 # Execute scripts
-./mcp-rpc-exec -e 'console.log(await rpc.myapi.processData({items: ["a", "bb", "ccc"], threshold: 1}))'
-./mcp-rpc-exec script.ts
+./lootbox -e 'console.log(await rpc.myapi.processData({items: ["a", "bb", "ccc"], threshold: 1}))'
+./lootbox script.ts
 ```
 
 **Option C: Direct WebSocket**
@@ -309,11 +309,11 @@ Required:
 
 Optional:
   --mcp-config, -m        Path to MCP server configuration JSON
-  --mcp-rpc-data-dir, -d  Directory for runtime data (script history, etc.)
+  --lootbox-data-dir, -d  Directory for runtime data (script history, etc.)
                           Defaults to platform-specific standard location:
-                          - macOS: ~/Library/Application Support/mcp-rpc-runtime
-                          - Linux: ~/.local/share/mcp-rpc-runtime
-                          - Windows: %APPDATA%/mcp-rpc-runtime
+                          - macOS: ~/Library/Application Support/lootbox
+                          - Linux: ~/.local/share/lootbox
+                          - Windows: %APPDATA%/lootbox
 
 Examples:
   --rpc-dir ./functions --port 8080
@@ -322,7 +322,7 @@ Examples:
 
 ### CLI Client Configuration
 
-Create `mcp-rpc-exec.config.json` in your project directory:
+Create `lootbox.config.json` in your project directory:
 
 ```json
 {
@@ -338,10 +338,10 @@ Priority: `--server` flag > config file > default (`ws://localhost:8080/ws`)
 # Server
 deno task start           # Development mode with UI hot-reload
 deno task start:prod      # Production mode
-deno task compile         # Build standalone binary (includes UI)
+deno task compile         # Build standalone lootbox-runtime binary (includes UI)
 
 # CLI tool
-deno task compile-exec    # Build mcp-rpc-exec binary
+deno task compile-exec    # Build lootbox CLI binary
 
 # UI development
 deno task ui:dev          # Start Vite dev server (port 5173)
@@ -494,7 +494,7 @@ src/
 # Check files are .ts and in --rpc-dir directory
 # Inspect discovered functions:
 curl http://localhost:8080/rpc/namespaces
-mcp-rpc-exec --namespaces
+lootbox --namespaces
 ```
 
 **UI not loading:**
@@ -550,10 +550,10 @@ deno task start --mcp-config mcp-servers.json
 
 ```bash
 # Verify config file exists in current directory
-cat mcp-rpc-exec.config.json
+cat lootbox.config.json
 
 # Test with explicit --server flag
-mcp-rpc-exec --server ws://localhost:8080/ws --namespaces
+lootbox --server ws://localhost:8080/ws --namespaces
 ```
 
 ## Inspiration & Research

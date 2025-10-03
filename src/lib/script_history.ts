@@ -22,20 +22,20 @@ function getDefaultDataDir(): string {
 
   if (platform === "windows") {
     const appData = Deno.env.get("APPDATA") || Deno.env.get("USERPROFILE");
-    return appData ? join(appData, "mcp-rpc-runtime") : join(Deno.cwd(), "mcp-rpc-data");
+    return appData ? join(appData, "lootbox") : join(Deno.cwd(), "lootbox-data");
   } else if (platform === "darwin") {
     const home = Deno.env.get("HOME");
-    return home ? join(home, "Library", "Application Support", "mcp-rpc-runtime") : join(Deno.cwd(), "mcp-rpc-data");
+    return home ? join(home, "Library", "Application Support", "lootbox") : join(Deno.cwd(), "lootbox-data");
   } else {
     // Linux/Unix - follow XDG spec
     const xdgDataHome = Deno.env.get("XDG_DATA_HOME");
     const home = Deno.env.get("HOME");
     if (xdgDataHome) {
-      return join(xdgDataHome, "mcp-rpc-runtime");
+      return join(xdgDataHome, "lootbox");
     } else if (home) {
-      return join(home, ".local", "share", "mcp-rpc-runtime");
+      return join(home, ".local", "share", "lootbox");
     }
-    return join(Deno.cwd(), "mcp-rpc-data");
+    return join(Deno.cwd(), "lootbox-data");
   }
 }
 

@@ -59,7 +59,7 @@ export class McpClientManager {
 
       const client = new Client(
         {
-          name: "mcp-rpc-runtime",
+          name: "lootbox",
           version: "1.0.0",
         },
         {

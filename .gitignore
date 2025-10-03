@@ -14,10 +14,10 @@ npm/
 .env
 
 rpc-server
-mcp-rpc-runtime
-mcp-rpc-runtime.exe
+lootbox-runtime
+lootbox-runtime.exe
 .claude
 filedb_data/
 script-history/
-mcp-rpc-exec
-mcp-rpc-exec.exe
+lootbox
+lootbox.exe
