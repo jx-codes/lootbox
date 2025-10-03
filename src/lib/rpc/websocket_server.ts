@@ -1,779 +1,240 @@
-// Simple WebSocket RPC server
+/**
+ * WebSocketRpcServer - Thin Orchestrator
+ *
+ * Composes and coordinates all manager classes to provide
+ * a complete WebSocket RPC server.
+ *
+ * Responsibilities:
+ * - Manager composition and initialization
+ * - Lifecycle orchestration (start/stop)
+ * - Wiring managers together with callbacks
+ */
 
-import { Hono } from "@hono/hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
+import type { Hono } from "@hono/hono";
 import { upgradeWebSocket } from "@hono/hono/deno";
 import { get_client, set_client } from "../client_cache.ts";
-import { execute_llm_script } from "../execute_llm_script.ts";
-import { McpClientManager } from "../external-mcps/mcp_client_manager.ts";
 import type { McpConfigFile } from "../external-mcps/mcp_config.ts";
-import { McpSchemaFetcher } from "../external-mcps/mcp_schema_fetcher.ts";
-import { convertMcpSchemasToExtractionResults } from "../external-mcps/parse_mcp_schemas.ts";
-import { executeMcpResource, executeMcpTool } from "./execute_mcp.ts";
-import { discover_rpc_files, type RpcFile } from "./load_rpc_files.ts";
 import { WorkerManager } from "./worker_manager.ts";
-
-// Type for Hono WebSocket context
-interface WebSocketContext {
-  send(message: string): void;
-  close(): void;
-}
-
-interface RpcMessage {
-  method: string;
-  args?: unknown; // Now a single object instead of array
-  id?: string;
-}
-
-interface ScriptMessage {
-  script: string;
-  sessionId?: string;
-  id?: string;
-}
-
-interface RpcResponse {
-  result?: unknown;
-  error?: string;
-  id?: string;
-}
+import { RpcCacheManager } from "./managers/rpc_cache_manager.ts";
+import { FileWatcherManager } from "./managers/file_watcher_manager.ts";
+import { TypeGeneratorManager } from "./managers/type_generator_manager.ts";
+import { McpIntegrationManager } from "./managers/mcp_integration_manager.ts";
+import { MessageRouter } from "./managers/message_router.ts";
+import { ConnectionManager } from "./managers/connection_manager.ts";
+import { OpenApiRouteHandler } from "./managers/openapi_route_handler.ts";
 
 export class WebSocketRpcServer {
-  private app = new Hono();
-  private rpcFiles = new Map<string, RpcFile>();
-  private connectedClients = new Set<WebSocketContext>();
-  private fileWatcher?: Deno.FsWatcher;
-  private mcpState: {
-    clientManager: McpClientManager;
-    schemaFetcher: McpSchemaFetcher;
-  } | null = null;
-  private cachedClientCode: string | null = null;
-  private cachedTypes: string | null = null;
+  private app = new OpenAPIHono();
+
+  // Manager composition
+  private rpcCacheManager: RpcCacheManager;
+  private fileWatcherManager: FileWatcherManager;
+  private typeGeneratorManager: TypeGeneratorManager;
+  private mcpIntegrationManager: McpIntegrationManager;
+  private connectionManager: ConnectionManager;
+  private messageRouter!: MessageRouter; // Initialized in start()
   private workerManager: WorkerManager | null = null;
 
+  private currentPort = 0;
+
   constructor() {
-    this.setupRoutes();
+    // Initialize independent managers
+    this.rpcCacheManager = new RpcCacheManager();
+    this.fileWatcherManager = new FileWatcherManager();
+    this.typeGeneratorManager = new TypeGeneratorManager(this.rpcCacheManager);
+    this.mcpIntegrationManager = new McpIntegrationManager();
+    this.connectionManager = new ConnectionManager();
   }
 
-  private setupRoutes(): void {
-    this.app.get("/health", (c) => {
-      return c.json({
-        status: "ok",
-        functions: Array.from(this.rpcFiles.keys()),
+  /**
+   * Wire managers together with event callbacks
+   */
+  private wireManagers(): void {
+    // RPC cache refresh triggers:
+    // 1. Type cache invalidation
+    this.rpcCacheManager.onCacheRefreshed(() => {
+      this.typeGeneratorManager.invalidateCache();
+    });
+
+    // 2. Client notifications
+    this.rpcCacheManager.onCacheRefreshed((functions) => {
+      this.connectionManager.broadcastToClients({
+        type: "functions_updated",
+        functions,
       });
     });
 
-    this.app.get("/namespaces", async (c) => {
-      const namespaces = await this.getAvailableNamespaces();
-      return c.json(namespaces);
-    });
-
-    this.app.get("/rpc-namespaces", async (c) => {
-      const metadata = await this.getRpcNamespaces();
-      return c.text(metadata);
-    });
-
-    this.app.get("/types", async (c) => {
-      if (!this.cachedTypes) {
-        this.cachedTypes = await this.generateTypes();
+    // 3. Client code regeneration and caching
+    this.rpcCacheManager.onCacheRefreshed(async () => {
+      try {
+        const schemas = this.mcpIntegrationManager.isEnabled()
+          ? this.mcpIntegrationManager.getSchemas()
+          : undefined;
+        const clientCode = await this.typeGeneratorManager.generateClientCode(
+          this.currentPort,
+          schemas
+        );
+        set_client(clientCode);
+      } catch (err) {
+        console.error("Failed to regenerate client code:", err);
       }
-      return c.text(this.cachedTypes);
     });
 
-    this.app.get("/types/:namespaces", async (c) => {
-      const namespacesParam = c.req.param("namespaces");
-      const requestedNamespaces = namespacesParam.split(",").map(ns => ns.trim());
-      const types = await this.generateNamespaceTypes(requestedNamespaces);
-      return c.text(types);
-    });
-
-    this.app.get("/client.ts", (c) => {
-      const client = get_client();
-      return c.text(client.code);
-    });
-
-    this.app.get(
-      "/worker-ws",
-      upgradeWebSocket(() => {
-        let workerId: string | null = null;
-
-        return {
-          onOpen: (_event, ws) => {
-            console.error("Worker WebSocket connected");
-
-            // Register send callback immediately
-            if (this.workerManager) {
-              // We'll set the workerId when we get the identify message
-              // For now, just store the ws reference
-            }
-          },
-
-          onMessage: (event, ws) => {
-            if (!this.workerManager) return;
-
-            const data =
-              typeof event.data === "string"
-                ? event.data
-                : new TextDecoder().decode(
-                    new Uint8Array(event.data as ArrayBuffer)
-                  );
-
-            // Parse to get workerId from identify message
-            try {
-              const msg = JSON.parse(data);
-              if (msg.type === "identify" && msg.workerId) {
-                const id = msg.workerId as string;
-                workerId = id;
-                // Register the send callback for this worker
-                this.workerManager.registerWorkerSender(
-                  id,
-                  (message: string) => {
-                    ws.send(message);
-                  }
-                );
-              }
-            } catch {
-              // Ignore parse errors
-            }
-
-            // Forward all messages to worker manager
-            this.workerManager.handleMessage(data);
-          },
-
-          onClose: () => {
-            console.error("Worker WebSocket disconnected");
-            if (this.workerManager && workerId) {
-              this.workerManager.handleDisconnect(workerId);
-            }
-          },
-
-          onError: (error) => console.error("Worker WebSocket error:", error),
-        };
-      })
-    );
-
-    this.app.get(
-      "/ws",
-      upgradeWebSocket(() => ({
-        onOpen: (_event, ws) => {
-          console.error("WebSocket connected");
-          this.connectedClients.add(ws);
-          ws.send(
-            JSON.stringify({
-              type: "welcome",
-              functions: Array.from(this.rpcFiles.keys()),
-            })
-          );
-        },
-
-        onMessage: async (event, ws) => {
-          try {
-            console.error("📨 WebSocket received message");
-            const data =
-              typeof event.data === "string"
-                ? event.data
-                : new TextDecoder().decode(
-                    new Uint8Array(event.data as ArrayBuffer)
-                  );
-
-            const parsed = JSON.parse(data);
-            console.error(
-              `📋 Parsed message type: ${
-                "script" in parsed ? "SCRIPT" : "RPC"
-              }`,
-              { id: parsed.id }
-            );
-            const response: RpcResponse = { id: parsed.id };
-
-            // Check if this is a script execution request
-            if ("script" in parsed) {
-              console.error("🎬 Starting script execution...");
-              const scriptMsg: ScriptMessage = parsed;
-              console.error(
-                `📄 Script length: ${scriptMsg.script.length} chars`
-              );
-
-              const result = await execute_llm_script({
-                script: scriptMsg.script,
-                sessionId: scriptMsg.sessionId,
-              });
-              console.error("✅ Script execution completed", {
-                success: result.success,
-              });
-
-              if (result.success) {
-                response.result = result.output;
-              } else {
-                response.error = result.error;
-              }
-            } else {
-              // Handle as RPC or MCP call
-              const msg: RpcMessage = parsed;
-
-              // Check if this is an MCP call (starts with mcp_)
-              if (msg.method.startsWith("mcp_")) {
-                if (!this.mcpState) {
-                  response.error = "MCP is not enabled on this server";
-                } else {
-                  const result = await this.handleMcpCall(msg.method, msg.args);
-                  if (result.success) {
-                    response.result = result.data;
-                  } else {
-                    response.error = result.error;
-                  }
-                }
-              } else {
-                // Handle as regular RPC call via worker
-                if (!msg.method.includes(".")) {
-                  response.error = `Invalid method format: ${msg.method}. Expected: namespace.functionName`;
-                } else {
-                  const [namespace, functionName] = msg.method.split(".");
-
-                  if (!this.workerManager) {
-                    response.error = "Worker manager not initialized";
-                  } else {
-                    try {
-                      const result = await this.workerManager.callFunction(
-                        namespace,
-                        functionName,
-                        msg.args || {}
-                      );
-                      response.result = result;
-                    } catch (error) {
-                      response.error =
-                        error instanceof Error ? error.message : String(error);
-                    }
-                  }
-                }
-              }
-            }
-
-            console.error("📤 Sending response back to client", {
-              hasResult: !!response.result,
-              hasError: !!response.error,
-            });
-            ws.send(JSON.stringify(response));
-          } catch (error) {
-            console.error("❌ WebSocket message error:", error);
-            ws.send(
-              JSON.stringify({
-                error: "Invalid message format",
-                id: null,
-              })
-            );
-          }
-        },
-
-        onClose: (_event, ws) => {
-          console.error("WebSocket disconnected");
-          this.connectedClients.delete(ws);
-        },
-        onError: (error) => console.error("WebSocket error:", error),
-      }))
-    );
-  }
-
-  private async refreshRpcFiles(): Promise<void> {
-    try {
-      const { TypeExtractor } = await import(
-        "../type_system/type_extractor.ts"
-      );
-      const files = await discover_rpc_files();
-      const extractor = new TypeExtractor();
-
-      // Clear existing cache
-      this.rpcFiles.clear();
-
-      // Invalidate cached client and types
-      this.cachedClientCode = null;
-      this.cachedTypes = null;
-
-      // Rebuild function cache with namespaced method names
-      for (const file of files) {
-        try {
-          const result = extractor.extractFromFile(file.path);
-          for (const func of result.functions) {
-            const namespacedMethod = `${file.name}.${func.name}`;
-            this.rpcFiles.set(namespacedMethod, file);
-          }
-        } catch (err) {
-          console.error(`Error discovering functions in ${file.name}:`, err);
-        }
-      }
-
-      const functionNames = Array.from(this.rpcFiles.keys());
-      console.error(`RPC functions updated: ${functionNames.join(", ")}`);
-
-      // Generate client eagerly when files change
-      const clientCode = await this.generateClientCode();
-      set_client(clientCode);
-
-      // Restart affected workers with new code
+    // 4. Worker restarts
+    this.rpcCacheManager.onCacheRefreshed(async () => {
       if (this.workerManager) {
-        const uniqueFiles = this.getUniqueRpcFiles();
+        const uniqueFiles = this.rpcCacheManager.getUniqueFiles();
         await Promise.all(
           Array.from(uniqueFiles.values()).map((file) =>
             this.workerManager!.restartWorker(file.name, file)
           )
         );
       }
-
-      // Notify all connected clients about function updates
-      const updateMessage = JSON.stringify({
-        type: "functions_updated",
-        functions: functionNames,
-      });
-
-      for (const client of this.connectedClients) {
-        try {
-          client.send(updateMessage);
-        } catch (err) {
-          console.error("Failed to notify client of function updates:", err);
-          this.connectedClients.delete(client);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to refresh RPC files:", err);
-    }
+    });
   }
 
-  private async startFileWatcher(): Promise<void> {
+  /**
+   * Start the RPC server
+   */
+  async start(port: number, mcpConfig: McpConfigFile | null): Promise<void> {
+    this.currentPort = port;
+
+    // Phase 1: Initial RPC cache load
+    console.error("Loading RPC files...");
+    await this.rpcCacheManager.refreshCache();
+
+    // Phase 2: Initialize MCP if config provided
+    if (mcpConfig) {
+      await this.mcpIntegrationManager.initialize(mcpConfig);
+      console.error(
+        `Connected MCP servers: ${this.mcpIntegrationManager.getConnectedServers().join(", ")}`
+      );
+    }
+
+    // Phase 2.5: Generate initial client code
+    const schemas = this.mcpIntegrationManager.isEnabled()
+      ? this.mcpIntegrationManager.getSchemas()
+      : undefined;
+    const clientCode = await this.typeGeneratorManager.generateClientCode(
+      port,
+      schemas
+    );
+    set_client(clientCode);
+    console.error("Generated initial client code");
+
+    // Phase 3: Wire managers together
+    this.wireManagers();
+
+    // Phase 4: Setup message routing (depends on worker manager, but we'll initialize it later)
+    // We'll create a lazy wrapper for now
+    this.workerManager = new WorkerManager(port);
+    this.messageRouter = new MessageRouter(
+      this.workerManager,
+      this.mcpIntegrationManager
+    );
+
+    // Phase 5: Setup HTTP routes with OpenAPI documentation
+    this.setupRoutes();
+
+    // Phase 7: Start file watcher
     const { get_config } = await import("../get_config.ts");
     const config = get_config();
+    this.fileWatcherManager.startWatching(config.rpc_dir, async () => {
+      await this.rpcCacheManager.refreshCache();
+    });
 
-    try {
-      this.fileWatcher = Deno.watchFs(config.rpc_dir);
-      console.error(`Watching RPC directory: ${config.rpc_dir}`);
-
-      // Start watching in background
-      (async () => {
-        try {
-          for await (const event of this.fileWatcher!) {
-            // Only react to TypeScript file changes
-            if (event.paths.some((path) => path.endsWith(".ts"))) {
-              console.error(
-                `File system event: ${event.kind} - ${event.paths.join(", ")}`
-              );
-
-              // Debounce rapid file changes
-              await new Promise((resolve) => setTimeout(resolve, 100));
-              await this.refreshRpcFiles();
-            }
-          }
-        } catch (err) {
-          console.error("File watcher error:", err);
-        }
-      })();
-    } catch (err) {
-      console.error("Failed to start file watcher:", err);
-    }
-  }
-
-  async start(port: number, mcpConfig: McpConfigFile | null): Promise<void> {
-    // Initial load of RPC files (for type extraction)
-    await this.refreshRpcFiles();
-
-    // Initialize MCP if config provided
-    if (mcpConfig) {
-      console.error("Initializing MCP integration...");
-      const clientManager = new McpClientManager();
-      await clientManager.initializeClients(mcpConfig.mcpServers);
-
-      const schemaFetcher = new McpSchemaFetcher();
-      for (const serverName of clientManager.getConnectedServerNames()) {
-        const client = clientManager.getClient(serverName);
-        if (client) {
-          await schemaFetcher.fetchSchemas(client, serverName);
-        }
-      }
-
-      this.mcpState = { clientManager, schemaFetcher };
-      console.error("MCP integration initialized successfully");
-    }
-
-    // Start file watcher for continuous monitoring
-    await this.startFileWatcher();
-
+    // Phase 8: Start HTTP server
     console.error(`Starting RPC server on port ${port}`);
     console.error(
-      `Available RPC functions: ${Array.from(this.rpcFiles.keys()).join(", ")}`
+      `Available RPC functions: ${this.rpcCacheManager.getFunctionNames().join(", ")}`
     );
-    if (this.mcpState) {
-      const mcpServers = this.mcpState.clientManager.getConnectedServerNames();
-      console.error(`Connected MCP servers: ${mcpServers.join(", ")}`);
-    }
-
-    // Start the HTTP server first
     Deno.serve({ port }, this.app.fetch);
 
-    // Give the server a moment to start listening
+    // Give server time to start
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Now initialize worker manager and start workers
-    this.workerManager = new WorkerManager(port);
-
-    // Start workers for all RPC files
-    const uniqueFiles = this.getUniqueRpcFiles();
+    // Phase 9: Initialize workers
+    const uniqueFiles = this.rpcCacheManager.getUniqueFiles();
     await Promise.all(
       Array.from(uniqueFiles.values()).map((file) =>
         this.workerManager!.startWorker(file)
       )
     );
 
-    // Wait for workers to be ready (5 second timeout)
+    // Wait for workers to be ready
     await this.workerManager.waitForReady(5000);
     console.error(`[Server] All workers initialized`);
   }
 
+  /**
+   * Stop the RPC server
+   */
   async stop(): Promise<void> {
     console.error("Stopping RPC server...");
 
-    // Stop all workers
+    // Stop workers
     if (this.workerManager) {
       await this.workerManager.stopAllWorkers();
       this.workerManager = null;
     }
 
-    // Close all WebSocket connections
-    for (const client of this.connectedClients) {
-      try {
-        client.close();
-      } catch (err) {
-        console.error("Error closing WebSocket connection:", err);
-      }
-    }
-    this.connectedClients.clear();
+    // Close all client connections
+    await this.connectionManager.closeAllClients();
 
-    // Disconnect MCP clients
-    if (this.mcpState) {
-      await this.mcpState.clientManager.disconnectAll();
-      this.mcpState = null;
-    }
+    // Shutdown MCP
+    await this.mcpIntegrationManager.shutdown();
 
-    // Note: Deno.watchFs doesn't have a direct close method,
-    // but the async iterator will be garbage collected
-    this.fileWatcher = undefined;
+    // Stop file watcher
+    this.fileWatcherManager.stopWatching();
+
+    console.error("RPC server stopped");
   }
 
   /**
-   * Get unique RPC files (one per file path)
+   * Setup all HTTP and WebSocket routes
    */
-  private getUniqueRpcFiles(): Map<string, RpcFile> {
-    const uniqueFiles = new Map<string, RpcFile>();
-    for (const file of this.rpcFiles.values()) {
-      uniqueFiles.set(file.path, file);
-    }
-    return uniqueFiles;
+  private setupRoutes(): void {
+    // Setup OpenAPI-documented REST routes
+    const openApiHandler = new OpenApiRouteHandler(
+      this.app,
+      this.rpcCacheManager,
+      this.typeGeneratorManager,
+      this.mcpIntegrationManager,
+      get_client,
+      this.currentPort
+    );
+    openApiHandler.setupRoutes();
+
+    // Setup WebSocket routes (cannot be documented via OpenAPI)
+    this.setupWebSocketRoutes();
   }
 
   /**
-   * Handle MCP tool or resource call
+   * Setup WebSocket routes
+   * Note: WebSocket routes cannot be documented via OpenAPI specification
    */
-  private async handleMcpCall(
-    method: string,
-    args: unknown
-  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
-    if (!this.mcpState) {
-      return {
-        success: false,
-        error: "MCP is not initialized",
-      };
-    }
+  private setupWebSocketRoutes(): void {
+    // Cast to Hono for WebSocket routes (OpenAPIHono extends Hono but upgradeWebSocket has strict typing)
+    const honoApp = this.app as unknown as Hono;
 
-    // Parse method: mcp_ServerName.operationName
-    const parts = method.split(".");
-    if (parts.length !== 2) {
-      return {
-        success: false,
-        error: `Invalid MCP method format: ${method}`,
-      };
-    }
-
-    const serverNameWithPrefix = parts[0]; // mcp_ServerName
-    const operationName = parts[1];
-
-    // Remove mcp_ prefix to get actual server name
-    if (!serverNameWithPrefix.startsWith("mcp_")) {
-      return {
-        success: false,
-        error: `Invalid MCP method format: ${method}`,
-      };
-    }
-
-    const serverName = serverNameWithPrefix.substring(4); // Remove "mcp_"
-
-    // Check if it's a resource call (starts with resource_)
-    if (operationName.startsWith("resource_")) {
-      const resourceName = operationName.substring(9); // Remove "resource_"
-      return await executeMcpResource(
-        this.mcpState.clientManager,
-        this.mcpState.schemaFetcher,
-        serverName,
-        resourceName,
-        args
-      );
-    } else {
-      // It's a tool call
-      return await executeMcpTool(
-        this.mcpState.clientManager,
-        serverName,
-        operationName,
-        args
-      );
-    }
-  }
-
-  private async generateTypes(): Promise<string> {
-    if (this.rpcFiles.size === 0 && !this.mcpState) {
-      return "// No RPC files found";
-    }
-
-    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
-    const { ClientGenerator } = await import(
-      "../type_system/client_generator.ts"
-    );
-    const { get_config } = await import("../get_config.ts");
-
-    const config = get_config();
-
-    // Use cached RPC files instead of rescanning directory
-    const uniqueFiles = new Map<string, RpcFile>();
-    for (const file of this.rpcFiles.values()) {
-      uniqueFiles.set(file.path, file);
-    }
-
-    const extractor = new TypeExtractor();
-    const generator = new ClientGenerator();
-    const rpcExtractionResults = [];
-
-    for (const file of uniqueFiles.values()) {
-      try {
-        console.error(`Extracting types from: ${file.name}`);
-        const result = extractor.extractFromFile(file.path);
-        rpcExtractionResults.push(result);
-      } catch (err) {
-        console.error(`Error extracting types from ${file.name}:`, err);
-      }
-    }
-
-    // Generate lightweight type summary with MCP integration
-    const mcpExtractionResults = this.mcpState
-      ? convertMcpSchemasToExtractionResults(
-          this.mcpState.schemaFetcher.getAllSchemas()
-        )
-      : [];
-
-    return generator.generateTypesSummary(
-      rpcExtractionResults,
-      mcpExtractionResults,
-      config.port
-    );
-  }
-
-  private async generateClientCode(): Promise<string> {
-    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
-    const { ClientGenerator } = await import(
-      "../type_system/client_generator.ts"
-    );
-    const { get_config } = await import("../get_config.ts");
-
-    const config = get_config();
-
-    // Use cached RPC files instead of rescanning directory
-    const uniqueFiles = new Map<string, RpcFile>();
-    for (const file of this.rpcFiles.values()) {
-      uniqueFiles.set(file.path, file);
-    }
-
-    const extractor = new TypeExtractor();
-    const generator = new ClientGenerator();
-    const rpcExtractionResults = [];
-
-    for (const file of uniqueFiles.values()) {
-      try {
-        const result = extractor.extractFromFile(file.path);
-        rpcExtractionResults.push(result);
-      } catch (err) {
-        console.error(
-          `Error extracting types for client from ${file.name}:`,
-          err
+    honoApp.get(
+      "/worker-ws",
+      upgradeWebSocket(() => {
+        return this.connectionManager.createWorkerWebSocketHandler(
+          this.workerManager!
         );
-      }
-    }
+      })
+    );
 
-    const options = {
-      websocketUrl: `ws://localhost:${config.port}/ws`,
-      timeout: 10000,
-      clientClassName: "RpcClient",
-      includeInterfaces: true,
-    };
-
-    // Generate client with MCP integration if enabled
-    if (this.mcpState) {
-      const mcpSchemas = this.mcpState.schemaFetcher.getAllSchemas();
-      const mcpExtractionResults =
-        convertMcpSchemasToExtractionResults(mcpSchemas);
-      return generator.generateFullClientWithMcp(
-        rpcExtractionResults,
-        mcpExtractionResults,
-        options
-      );
-    }
-
-    return generator.generateFullClient(rpcExtractionResults, options);
-  }
-
-  /**
-   * Get list of available namespaces
-   */
-  private async getAvailableNamespaces(): Promise<{ rpc: string[]; mcp: string[] }> {
-    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
-    const { ClientGenerator } = await import("../type_system/client_generator.ts");
-
-    const uniqueFiles = new Map<string, RpcFile>();
-    for (const file of this.rpcFiles.values()) {
-      uniqueFiles.set(file.path, file);
-    }
-
-    const extractor = new TypeExtractor();
-    const generator = new ClientGenerator();
-    const rpcExtractionResults = [];
-
-    for (const file of uniqueFiles.values()) {
-      try {
-        const result = extractor.extractFromFile(file.path);
-        rpcExtractionResults.push(result);
-      } catch (err) {
-        console.error(`Error extracting types from ${file.name}:`, err);
-      }
-    }
-
-    const mcpExtractionResults = this.mcpState
-      ? convertMcpSchemasToExtractionResults(
-          this.mcpState.schemaFetcher.getAllSchemas()
-        )
-      : [];
-
-    return generator.getAvailableNamespaces(rpcExtractionResults, mcpExtractionResults);
-  }
-
-  /**
-   * Get RPC namespaces with metadata (for LLM discovery)
-   */
-  private async getRpcNamespaces(): Promise<string> {
-    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
-    const { ClientGenerator } = await import("../type_system/client_generator.ts");
-
-    const uniqueFiles = new Map<string, RpcFile>();
-    for (const file of this.rpcFiles.values()) {
-      uniqueFiles.set(file.path, file);
-    }
-
-    const extractor = new TypeExtractor();
-    const generator = new ClientGenerator();
-    const rpcExtractionResults = [];
-
-    for (const file of uniqueFiles.values()) {
-      try {
-        const result = extractor.extractFromFile(file.path);
-        rpcExtractionResults.push(result);
-      } catch (err) {
-        console.error(`Error extracting types from ${file.name}:`, err);
-      }
-    }
-
-    const mcpExtractionResults = this.mcpState
-      ? convertMcpSchemasToExtractionResults(
-          this.mcpState.schemaFetcher.getAllSchemas()
-        )
-      : [];
-
-    const metadata = generator.getNamespaceMetadata(rpcExtractionResults, mcpExtractionResults);
-
-    // Format as text with instruction block
-    let output = "Available Namespaces:\n\n";
-
-    output += "<namespaces>\n";
-
-    // Combine RPC and MCP namespaces (MCP namespaces are prefixed with mcp_)
-    const allNamespaces = [
-      ...metadata.rpc,
-      ...metadata.mcp.map(ns => ({ ...ns, name: `mcp_${ns.name}` }))
-    ];
-
-    if (allNamespaces.length > 0) {
-      for (const ns of allNamespaces) {
-        output += `- ${ns.name} (${ns.functionCount} function${ns.functionCount !== 1 ? 's' : ''})`;
-        if (ns.description) {
-          output += ` - ${ns.description}`;
-        }
-        output += "\n";
-        if (ns.useWhen) {
-          output += `  Use when: ${ns.useWhen}\n`;
-        }
-        if (ns.tags.length > 0) {
-          output += `  Tags: ${ns.tags.join(", ")}\n`;
-        }
-        output += "\n";
-      }
-    } else {
-      output += "(none)\n";
-    }
-    output += "</namespaces>\n\n";
-
-    // Add instruction block
-    output += `<on_finish>
-IMPORTANT: Before using any namespace, you MUST call get_namespace_types()
-with the namespace names you want to use to load their TypeScript definitions.
-
-Example: get_namespace_types(["filedb", "hackernews"])
-
-This loads the type definitions for those specific namespaces without loading
-all namespaces at once, which saves context space.
-</on_finish>\n`;
-
-    return output;
-  }
-
-  /**
-   * Generate types for specific namespaces
-   */
-  private async generateNamespaceTypes(namespaces: string[]): Promise<string> {
-    const { TypeExtractor } = await import("../type_system/type_extractor.ts");
-    const { ClientGenerator } = await import("../type_system/client_generator.ts");
-    const { NamespaceFilter } = await import("../type_system/namespace_filter.ts");
-    const { get_config } = await import("../get_config.ts");
-
-    const config = get_config();
-
-    const uniqueFiles = new Map<string, RpcFile>();
-    for (const file of this.rpcFiles.values()) {
-      uniqueFiles.set(file.path, file);
-    }
-
-    const extractor = new TypeExtractor();
-    const generator = new ClientGenerator();
-    const filter = new NamespaceFilter(generator);
-    const rpcExtractionResults = [];
-
-    for (const file of uniqueFiles.values()) {
-      try {
-        const result = extractor.extractFromFile(file.path);
-        rpcExtractionResults.push(result);
-      } catch (err) {
-        console.error(`Error extracting types from ${file.name}:`, err);
-      }
-    }
-
-    const mcpExtractionResults = this.mcpState
-      ? convertMcpSchemasToExtractionResults(
-          this.mcpState.schemaFetcher.getAllSchemas()
-        )
-      : [];
-
-    return filter.generateNamespaceTypes(
-      rpcExtractionResults,
-      mcpExtractionResults,
-      namespaces,
-      config.port
+    honoApp.get(
+      "/ws",
+      upgradeWebSocket(() => {
+        return this.connectionManager.createClientWebSocketHandler(
+          this.messageRouter,
+          () => this.rpcCacheManager.getFunctionNames()
+        );
+      })
     );
   }
 }
