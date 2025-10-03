@@ -59,7 +59,11 @@ function wsUrlToHttpUrl(wsUrl: string): string {
 }
 
 function showHelp() {
-  console.log(`lootbox - Execute TypeScript scripts via WebSocket RPC
+  console.log(`lootbox - Execute TypeScript scripts 
+
+Lootbox gives you an entry point into mcp servers and other tools
+via the 'tools' object. You can write scripts to orchestrate, calculate,
+or transform data using the available functions.
 
 Usage:
   lootbox [OPTIONS] [FILE]

@@ -31,6 +31,11 @@ git clone https://github.com/jx-codes/mcp-rpc-runtime.git "$TEMP_DIR"
 # Navigate to project directory
 cd "$TEMP_DIR"
 
+# Install dependencies
+echo "📦 Installing dependencies..."
+deno install
+cd ui && deno install && cd ..
+
 # Compile the project
 echo "🏗️  Compiling executables..."
 deno task compile
