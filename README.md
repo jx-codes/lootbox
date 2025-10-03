@@ -11,28 +11,51 @@ Traditional MCP implementations require LLMs to use special tool-calling tokens 
 - **Code execution allows chaining** multiple API calls without token overhead
 - **Type safety and IntelliSense** provide better developer experience
 
-## Architecture
+## Core Components
 
-This is part of a two-component system:
+### 1. **mcp-rpc-runtime** (WebSocket Server)
+
+The main RPC server that auto-discovers TypeScript functions, generates type definitions, and executes scripts in isolated sandboxes.
+
+### 2. **mcp-rpc-exec** (CLI Client)
+
+A lightweight command-line tool for one-shot script execution via WebSocket.
+
+```bash
+# Execute scripts directly
+mcp-rpc-exec script.ts
+mcp-rpc-exec -e 'console.log(await rpc.slack.sendMessage({channelId: "C123", text: "Hello!"}))'
+cat script.ts | mcp-rpc-exec
+
+# Discover available functions
+mcp-rpc-exec --namespaces
+mcp-rpc-exec --types slack,stripe
+```
+
+### 3. **Web UI** (Dashboard & Playground)
+
+Modern React interface for interactive RPC exploration, script execution, and server monitoring at `http://localhost:8080/ui`.
+
+## Architecture
 
 ```
 ┌─────────────┐          ┌─────────────────┐          ┌─────────────────┐
-│ MCP Client  │◄────────►│  mcp-rpc-bridge │◄────────►│ mcp-rpc-runtime │
-│ (Claude)    │   MCP    │  (MCP Server)   │    WS    │ (This Project)  │
+│   Clients   │          │ mcp-rpc-runtime │          │  RPC Functions  │
+│             │          │  (This Server)  │          │   & MCP Servers │
+│ • Web UI    │◄────────►│                 │◄────────►│                 │
+│ • CLI Tool  │    WS    │ • Auto-discover │          │ • test-rpc/*.ts │
+│ • LLM/MCP   │  HTTP    │ • Type gen      │   Load   │ • External MCP  │
+│             │          │ • Sandboxing    │          │   (optional)    │
 └─────────────┘          └─────────────────┘          └─────────────────┘
-                                                                │
-                                                                │ loads &
-                                                                │ executes
-                                                                ▼
-                                                       ┌─────────────────┐
-                                                       │ TypeScript RPC  │
-                                                       │ Functions       │
-                                                       │ (--rpc-dir)     │
-                                                       └─────────────────┘
 ```
 
-- **mcp-rpc-runtime** (this project): WebSocket RPC server with auto-discovery and type generation
-- **mcp-rpc-bridge** (companion): MCP server that translates between MCP protocol and this runtime
+**Key Features:**
+
+- WebSocket RPC server with auto-discovery and type generation
+- Persistent worker processes for fast RPC execution
+- Sandboxed script execution with 10-second timeout
+- Optional MCP server integration (Zendesk, Slack, etc.)
+- OpenAPI/Swagger documentation
 
 ## Quick Start
 
@@ -45,47 +68,67 @@ git clone https://github.com/jx-codes/mcp-rpc-runtime
 cd mcp-rpc-runtime
 ```
 
-### 1. Create RPC Functions
-
-Create TypeScript files in a directory (e.g., `./my-rpc/`):
-
-```typescript
-// my-rpc/math.ts
-export function add(args: { a: number; b: number }): number {
-  return args.a + args.b;
-}
-
-export function multiply(args: { a: number; b: number }): number {
-  return args.a * args.b;
-}
-```
-
-```typescript
-// my-rpc/weather.ts
-export async function getCurrentWeather(args: {
-  location: string
-}): Promise<{ temperature: number; condition: string }> {
-  // Your weather API logic here
-  const response = await fetch(`https://api.weather.com/current?q=${args.location}`);
-  return await response.json();
-}
-```
-
-### 2. Start the Server
+### 1. Start the Server
 
 ```bash
-deno task start                                    # Uses test-rpc directory
-# OR
-deno run --allow-all src/main.ts --rpc-dir ./my-rpc --port 8080
+deno task start                    # Development mode with test-rpc functions
+deno task start:prod              # Production mode
 ```
 
-### 3. Use the Generated Client
+The server starts on `http://localhost:8080` with:
+
+- WebSocket endpoint at `ws://localhost:8080/ws`
+- Web UI at `http://localhost:8080/ui`
+- OpenAPI docs at `http://localhost:8080/doc`
+
+### 2. Create Your RPC Functions
+
+Create TypeScript files in `test-rpc/` (or your own directory):
+
+```typescript
+// test-rpc/myapi.ts
+export async function processData(args: {
+  items: string[];
+  threshold: number;
+}): Promise<{ processed: number; results: string[] }> {
+  const results = args.items.filter((item) => item.length > args.threshold);
+  return { processed: results.length, results };
+}
+```
+
+### 3. Use the Runtime
+
+**Option A: Web UI (Easiest)**
 
 ```bash
-# Get the TypeScript client
-curl http://localhost:8080/client.ts > rpc_client.ts
+# Open browser to http://localhost:8080/ui
+# Use the Playground to write and execute scripts interactively
+```
 
-# Or execute scripts directly via WebSocket
+**Option B: CLI Tool**
+
+```bash
+# Compile the CLI tool
+deno task compile-exec
+
+# Execute scripts
+./mcp-rpc-exec -e 'console.log(await rpc.myapi.processData({items: ["a", "bb", "ccc"], threshold: 1}))'
+./mcp-rpc-exec script.ts
+```
+
+**Option C: Direct WebSocket**
+
+```javascript
+const ws = new WebSocket("ws://localhost:8080/ws");
+ws.onopen = () => {
+  ws.send(
+    JSON.stringify({
+      script:
+        'console.log(await rpc.myapi.processData({items: ["hello"], threshold: 0}))',
+      id: "exec_1",
+    })
+  );
+};
 ```
 
 ## Core Features
@@ -105,14 +148,19 @@ Full TypeScript type extraction with namespace prefixing:
 
 ```typescript
 // Generated client includes full type definitions
-export interface Math_AddArgs { a: number; b: number; }
+export interface Math_AddArgs {
+  a: number;
+  b: number;
+}
 export interface RpcClient {
   math: {
     add(args: Math_AddArgs): Promise<number>;
     multiply(args: Math_MultiplyArgs): Promise<number>;
   };
   weather: {
-    getCurrentWeather(args: Weather_CurrentWeatherArgs): Promise<Weather_WeatherResult>;
+    getCurrentWeather(
+      args: Weather_CurrentWeatherArgs
+    ): Promise<Weather_WeatherResult>;
   };
 }
 ```
@@ -122,26 +170,30 @@ export interface RpcClient {
 Real-time bidirectional communication:
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws');
+const ws = new WebSocket("ws://localhost:8080/ws");
 
 // Direct RPC call
-ws.send(JSON.stringify({
-  method: 'math.add',
-  args: { a: 5, b: 3 },
-  id: 'call_123'
-}));
+ws.send(
+  JSON.stringify({
+    method: "math.add",
+    args: { a: 5, b: 3 },
+    id: "call_123",
+  })
+);
 
 // Script execution
-ws.send(JSON.stringify({
-  script: `
+ws.send(
+  JSON.stringify({
+    script: `
     const result = await rpc.math.add({ a: 10, b: 20 });
     const weather = await rpc.weather.getCurrentWeather({ location: 'San Francisco' });
     console.log('Math result:', result);
     console.log('Weather:', weather);
   `,
-  sessionId: 'user-session-123',  // Optional: associate script with a session
-  id: 'script_456'
-}));
+    sessionId: "user-session-123", // Optional: associate script with a session
+    id: "script_456",
+  })
+);
 ```
 
 ### 🎬 Script Execution
@@ -152,7 +204,7 @@ Execute complete TypeScript workflows with injected RPC client:
 // This TypeScript code runs in a sandboxed environment
 // with the 'rpc' object automatically available
 
-const team = ['charizard', 'blastoise', 'venusaur'];
+const team = ["charizard", "blastoise", "venusaur"];
 const pokemonData = [];
 
 for (const name of team) {
@@ -164,17 +216,22 @@ const analysis = await rpc.pokemon.analyzeTeam({ teamNames: team });
 const sum = await rpc.math.add({ a: analysis.team.length, b: 10 });
 
 console.log(`Analyzed ${team.length} Pokemon. Total with bonus: ${sum}`);
-console.log('Team strengths:', analysis.strengths);
+console.log("Team strengths:", analysis.strengths);
 ```
 
-## HTTP Endpoints
+## HTTP API Endpoints
 
-| Endpoint | Description | Response |
-|----------|-------------|----------|
-| `/health` | Server status and available functions | `{ status: "ok", functions: [...] }` |
-| `/client.ts` | Generated TypeScript client code | Full client with types |
-| `/types` | TypeScript interfaces only | Type definitions |
-| `/ws` | WebSocket endpoint | Upgrade to WebSocket |
+| Endpoint             | Description                         | Response                           |
+| -------------------- | ----------------------------------- | ---------------------------------- |
+| `/health`            | Server health check                 | `{ status: "ok" }`                 |
+| `/namespaces`        | List available RPC & MCP namespaces | `{ rpc: [...], mcp: [...] }`       |
+| `/rpc/namespaces`    | Metadata for RPC functions          | Human-readable function signatures |
+| `/types`             | All TypeScript type definitions     | Full TypeScript interfaces         |
+| `/types/:namespaces` | Types for specific namespaces       | Filtered TypeScript interfaces     |
+| `/client.ts`         | Generated TypeScript client         | Full RPC client with types         |
+| `/ui`                | Web dashboard                       | React SPA interface                |
+| `/doc`               | OpenAPI/Swagger documentation       | Interactive API docs               |
+| `/ws`                | WebSocket endpoint                  | Script execution & RPC calls       |
 
 ## RPC Function Requirements
 
@@ -192,53 +249,66 @@ export function simpleCalc(args: { x: number }): number {
 }
 
 // ❌ Wrong - not exported
-async function privateFunction(args: any) { }
+async function privateFunction(args: any) {}
 
 // ❌ Wrong - multiple parameters
-export function wrongSignature(x: number, y: string) { }
+export function wrongSignature(x: number, y: string) {}
 ```
 
-## Examples
+## Example RPC Functions
 
-The project includes example RPC functions in `test-rpc/`:
+The `test-rpc/` directory includes production-ready examples:
 
-- **`math.ts`**: Basic arithmetic operations
-- **`pokemon.ts`**: Complex API integration with Pokemon data
-- **`hello.ts`**: Simple greeting function
+### Service Integrations
 
-### Pokemon API Example
+- **`slack.ts`**: Send messages, list channels, rich notifications (25+ functions)
+- **`stripe.ts`**: Customer lookups, subscriptions, payment health checks
+- **`zendesk.ts`**: Ticket management, customer queries, comment handling
+- **`linear.ts`**: Issue tracking, project management integration
+- **`sendgrid.ts`**: Email sending, templates, transactional emails
+
+### Data & Utilities
+
+- **`filedb.ts`**: JSON-based lightweight database with SQL-like operations
+
+### Example Usage
 
 ```typescript
-// RPC function automatically discovered
-export async function comparePokemon(args: {
-  pokemon1: string;
-  pokemon2: string;
-}): Promise<PokemonComparison> {
-  // Fetches data from PokeAPI and performs battle analysis
-  // Full implementation in test-rpc/pokemon.ts
-}
-
-// Usage in script:
-const battle = await rpc.pokemon.comparePokemon({
-  pokemon1: 'charizard',
-  pokemon2: 'blastoise'
+// Multi-service workflow via Web UI or CLI
+const ticket = await rpc.zendesk.getTicket({ ticketId: 12345 });
+const customer = await rpc.stripe.getCustomer({
+  customerId: ticket.customerId,
 });
-console.log('Battle analysis:', battle.analysis.recommendation);
+
+// Create Linear issue from Zendesk ticket
+const issue = await rpc.linear.createIssue({
+  title: ticket.subject,
+  description: `Zendesk #${ticket.id}\nCustomer: ${customer.email}`,
+  priority: 1,
+});
+
+// Notify team via Slack
+await rpc.slack.sendMessage({
+  channelId: "C123",
+  text: `New high-priority issue created: ${issue.url}`,
+});
+
+console.log("Ticket escalated successfully!");
 ```
 
 ## Configuration
 
-### Command Line Options
+### Runtime Server Options
 
 ```bash
 deno run --allow-all src/main.ts [options]
 
 Required:
   --rpc-dir, -r           Directory containing RPC TypeScript files
-  --port, -p              Port number for WebSocket server
+  --port, -p              Port number for server
 
 Optional:
-  --mcp-config, -m        Path to MCP server configuration file
+  --mcp-config, -m        Path to MCP server configuration JSON
   --mcp-rpc-data-dir, -d  Directory for runtime data (script history, etc.)
                           Defaults to platform-specific standard location:
                           - macOS: ~/Library/Application Support/mcp-rpc-runtime
@@ -247,102 +317,243 @@ Optional:
 
 Examples:
   --rpc-dir ./functions --port 8080
-  --rpc-dir ~/.rpc --port 3000 --mcp-rpc-data-dir ./my-data
-  -r ./my-api -p 4000 -d /custom/data/path
+  --rpc-dir ~/.rpc --port 3000 --mcp-config mcp-servers.json
 ```
+
+### CLI Client Configuration
+
+Create `mcp-rpc-exec.config.json` in your project directory:
+
+```json
+{
+  "serverUrl": "ws://localhost:8080/ws"
+}
+```
+
+Priority: `--server` flag > config file > default (`ws://localhost:8080/ws`)
 
 ### Deno Tasks
 
 ```bash
-deno task start      # Start with test-rpc directory on port 8080
-deno task fmt        # Format code
-deno task lint       # Lint code
-deno task compile    # Compile to standalone binary
+# Server
+deno task start           # Development mode with UI hot-reload
+deno task start:prod      # Production mode
+deno task compile         # Build standalone binary (includes UI)
+
+# CLI tool
+deno task compile-exec    # Build mcp-rpc-exec binary
+
+# UI development
+deno task ui:dev          # Start Vite dev server (port 5173)
+deno task ui:build        # Build UI for production
+deno task ui:preview      # Preview production build
+
+# Code quality
+deno task fmt             # Format code
+deno task lint            # Lint code
+```
+
+## MCP Server Integration (Optional)
+
+The runtime can integrate external MCP servers alongside local RPC functions:
+
+```json
+// mcp-servers.json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "your-token" }
+    }
+  }
+}
+```
+
+Start server with MCP integration:
+
+```bash
+deno task start --mcp-config mcp-servers.json
+```
+
+Access MCP tools via namespaced RPC calls:
+
+```typescript
+// MCP tools appear as mcp.{servername}.{toolname}
+await rpc.mcp.filesystem.read_file({ path: "/etc/hosts" });
+await rpc.mcp.github.create_issue({ repo: "owner/repo", title: "Bug" });
 ```
 
 ## Technical Details
 
-### File System Monitoring
+### Worker-Based Execution
 
-- Watches RPC directory for `.ts` file changes
-- Hot-reloads functions without server restart
-- Notifies connected WebSocket clients of updates
+- **Persistent Worker Pool**: RPC functions execute in long-lived Deno worker processes
+- **Fast Startup**: Workers stay warm, eliminating cold-start overhead
+- **Isolation**: Each worker runs with `--allow-all` permissions for RPC functions
+- **Automatic Cleanup**: Workers restart on crashes or after extended inactivity
 
-### Type Extraction
+### Script Sandboxing
 
-- Uses `ts-morph` for TypeScript AST analysis
-- Extracts function signatures and interface definitions
-- Generates namespace-prefixed types to prevent conflicts
+- **Isolated Execution**: User scripts run in separate Deno processes
+- **Limited Permissions**: Scripts only have `--allow-net` (network access)
+- **10-Second Timeout**: Automatic termination for long-running scripts
+- **Injected RPC Client**: `rpc` object automatically available in script scope
 
-### Security Model
+### Type System
 
-- **Script Execution**: Sandboxed in separate Deno process with limited permissions (`--allow-net`)
-- **RPC Functions**: Run with full permissions (`--allow-all`) - only place trusted code in RPC directory
-- **WebSocket**: No authentication - suitable for local development/trusted environments
+- **AST Analysis**: Uses `ts-morph` to extract TypeScript types from source
+- **Namespace Prefixing**: Prevents type conflicts (e.g., `Slack_MessageArgs`)
+- **JSDoc Support**: Extracts documentation comments for generated client
+- **Selective Generation**: Filter types by namespace (`/types/slack,stripe`)
 
-### Performance
+### Hot Reload & Caching
 
-- **Generated Client**: Auto-disconnects after 100ms of inactivity (no active RPC calls)
-- **Type Generation**: On-demand via HTTP endpoints
-- **File Watching**: Debounced file system events (100ms)
-- **Script Execution**: 10-second timeout, isolated processes
+- **File Watching**: Monitors `test-rpc/` for changes, auto-reloads functions
+- **Client Caching**: Generated client cached until RPC files change
+- **Metadata Cache**: Function signatures cached for fast `/namespaces` queries
+- **WebSocket Notifications**: Connected clients notified of function updates
 
-## Development
+### Security Considerations
 
-### Project Structure
+- **RPC Functions**: Run with `--allow-all` - only include trusted code
+- **User Scripts**: Sandboxed with `--allow-net` only
+- **No Authentication**: WebSocket has no auth - use in trusted environments or behind firewall
+- **MCP Servers**: External processes with configurable permissions
+
+## Project Structure
 
 ```
 src/
-├── main.ts                          # Entry point
+├── main.ts                              # Server entry point
+├── exec.ts                              # CLI tool entry point
 ├── lib/
-│   ├── get_config.ts               # CLI argument parsing
-│   ├── execute_llm_script.ts       # Script execution with injected client
+│   ├── get_config.ts                    # Configuration & CLI args
+│   ├── execute_llm_script.ts            # Sandboxed script execution
+│   ├── script_history.ts                # Execution history tracking
+│   ├── client_cache.ts                  # Generated client caching
+│   ├── ui_server.ts                     # Web UI routing (dev/prod)
 │   ├── rpc/
-│   │   ├── websocket_server.ts     # Main WebSocket RPC server
-│   │   ├── load_rpc_files.ts       # File discovery
-│   │   ├── execute_rpc.ts          # Individual RPC execution
-│   │   └── client.ts               # Generated client template
+│   │   ├── websocket_server.ts          # Main WebSocket server (Hono)
+│   │   ├── worker_manager.ts            # Persistent worker pool
+│   │   ├── rpc_worker.ts                # Worker process handler
+│   │   ├── execute_rpc.ts               # RPC function execution
+│   │   ├── execute_mcp.ts               # MCP tool execution
+│   │   ├── load_rpc_files.ts            # Function auto-discovery
+│   │   ├── client.ts                    # Client template
+│   │   ├── managers/                    # Modular server components
+│   │   │   ├── connection_manager.ts    # WebSocket connections
+│   │   │   ├── message_router.ts        # WS message routing
+│   │   │   ├── route_handler.ts         # HTTP route handlers
+│   │   │   ├── openapi_route_handler.ts # OpenAPI/Swagger routes
+│   │   │   ├── file_watcher_manager.ts  # Hot-reload for RPC files
+│   │   │   ├── type_generator_manager.ts# Type generation
+│   │   │   ├── mcp_integration_manager.ts # MCP server lifecycle
+│   │   │   └── rpc_cache_manager.ts     # Function metadata cache
+│   │   └── schemas/
+│   │       └── openapi_schemas.ts       # Zod schemas for API
+│   ├── external-mcps/                   # MCP integration
+│   │   ├── mcp_config.ts                # Config loading & validation
+│   │   ├── mcp_client_manager.ts        # MCP server lifecycle
+│   │   ├── mcp_schema_fetcher.ts        # Tool schema extraction
+│   │   ├── parse_mcp_schemas.ts         # Schema to TypeScript types
+│   │   └── create_rpc_client_section.ts # MCP client generation
 │   └── type_system/
-│       ├── type_extractor.ts       # TypeScript AST analysis
-│       ├── client_generator.ts     # Client code generation
-│       ├── types.ts                # Type definitions
-│       └── file_system_adapter.ts  # File system abstraction
-test-rpc/                           # Example RPC functions
-├── math.ts                         # Basic math operations
-├── pokemon.ts                      # Complex Pokemon API integration
-└── hello.ts                        # Simple greeting
+│       ├── type_extractor.ts            # TypeScript AST analysis
+│       ├── client_generator.ts          # Client code generation
+│       ├── documentation_extractor.ts   # JSDoc extraction
+│       ├── namespace_filter.ts          # Selective type filtering
+│       └── types.ts                     # Shared type definitions
+├── test-rpc/                            # Example RPC functions
+│   ├── filedb.ts                        # JSON database
+│   ├── slack.ts                         # Slack integration
+│   ├── stripe.ts                        # Stripe payments
+│   ├── zendesk.ts                       # Zendesk support
+│   ├── linear.ts                        # Linear issues
+│   └── sendgrid.ts                      # Email sending
+└── ui/                                  # React Web UI
+    ├── src/
+    │   ├── pages/                       # Dashboard, Playground, etc.
+    │   ├── components/                  # Reusable UI components
+    │   └── lib/                         # API client, WebSocket client
+    └── dist/                            # Built UI (production)
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Functions not appearing:**
+**Functions not discovered:**
+
 ```bash
-# Check function signatures follow args pattern
-# Ensure functions are exported
-# Verify files are in RPC directory
+# Verify function signature: export async function name(args: Type): Promise<Result>
+# Check files are .ts and in --rpc-dir directory
+# Inspect discovered functions:
+curl http://localhost:8080/rpc/namespaces
+mcp-rpc-exec --namespaces
+```
+
+**UI not loading:**
+
+```bash
+# Development mode: Ensure Vite dev server is running
+deno task ui:dev  # Separate terminal
+
+# Production mode: Build UI first
+deno task ui:build
+deno task start:prod
+```
+
+**WebSocket connection refused:**
+
+```bash
+# Check server is running and port is correct
 curl http://localhost:8080/health
-```
 
-**Type errors in generated client:**
-```bash
-# Re-fetch client after function changes
-curl http://localhost:8080/client.ts > client.ts
-```
+# Verify port not in use
+lsof -i :8080
 
-**WebSocket connection issues:**
-```bash
-# Check server logs
-# Verify port is not in use: lsof -i :8080
-# Test with: websocat ws://localhost:8080/ws
+# Test WebSocket directly
+websocat ws://localhost:8080/ws
 ```
 
 **Script execution timeout:**
+
 ```javascript
 // Scripts timeout after 10 seconds
-// Break long operations into smaller RPC functions
-// Use Promise.all() for parallel operations
+// Solution 1: Break into smaller RPC functions
+// Solution 2: Use Promise.all() for parallel calls
+const results = await Promise.all([
+  rpc.slack.sendMessage({...}),
+  rpc.stripe.getCustomer({...})
+]);
+```
+
+**MCP server not starting:**
+
+```bash
+# Check MCP config file syntax
+cat mcp-servers.json | jq .
+
+# Verify MCP server command is available
+npx -y @modelcontextprotocol/server-filesystem --version
+
+# Check server logs for startup errors
+deno task start --mcp-config mcp-servers.json
+```
+
+**CLI tool config not working:**
+
+```bash
+# Verify config file exists in current directory
+cat mcp-rpc-exec.config.json
+
+# Test with explicit --server flag
+mcp-rpc-exec --server ws://localhost:8080/ws --namespaces
 ```
 
 ## Inspiration & Research
