@@ -231,9 +231,20 @@ async function main() {
     try {
       script = await Deno.readTextFile(filePath);
 
+      // If stdin is piped, prepend it as a global variable
       if (!Deno.stdin.isTerminal()) {
         const stdinData = await readStdin();
-        script = `const $STDIN = ${JSON.stringify(stdinData)};\n${script}`;
+        script = `const $STDIN = ${JSON.stringify(stdinData)};
+  const stdinOrDefault = (defaultValue = "") => {
+    const value = typeof $STDIN !== 'undefined' ? $STDIN : defaultValue;
+    return {
+      text: () => value.trim(),
+      json: () => { try { return JSON.parse(value); } catch { return null; } },
+      lines: () => value.split('\\n').filter(l => l.trim()),
+      raw: () => value
+    };
+  };
+  ${script}`;
       }
     } catch (error) {
       console.error(
