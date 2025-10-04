@@ -11,6 +11,7 @@
     "npm:@modelcontextprotocol/sdk@*": "1.8.0_express@5.0.1_zod@3.25.67",
     "npm:@modelcontextprotocol/sdk@1": "1.8.0_express@5.0.1_zod@3.25.67",
     "npm:@types/node@*": "24.2.0",
+    "npm:canvaskit-wasm@0.39.1": "0.39.1",
     "npm:ts-morph@23": "23.0.0",
     "npm:vite@*": "7.1.7_@types+node@24.2.0_picomatch@4.0.3",
     "npm:zod@^4.1.11": "4.1.11"
@@ -356,6 +357,9 @@
         "undici-types"
       ]
     },
+    "@webgpu/types@0.1.21": {
+      "integrity": "sha512-pUrWq3V5PiSGFLeLxoGqReTZmiiXwY3jRkIG5sLLKjyqNxrwm/04b4nw7LSmGWJcKk59XOM/YRTUwOzo4MMlow=="
+    },
     "accepts@2.0.0": {
       "integrity": "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==",
       "dependencies": [
@@ -407,6 +411,12 @@
       "dependencies": [
         "call-bind-apply-helpers",
         "get-intrinsic"
+      ]
+    },
+    "canvaskit-wasm@0.39.1": {
+      "integrity": "sha512-Gy3lCmhUdKq+8bvDrs9t8+qf7RvcjuQn+we7vTVVyqgOVO1UVfHpsnBxkTZw+R4ApEJ3D5fKySl9TU11hmjl/A==",
+      "dependencies": [
+        "@webgpu/types"
       ]
     },
     "code-block-writer@13.0.3": {
@@ -1087,6 +1097,7 @@
     "https://esm.sh/graphql@%3E=15.1.0?target=denonext": "https://esm.sh/graphql@16.11.0?target=denonext"
   },
   "remote": {
+    "https://deno.land/std@0.106.0/encoding/base64.ts": "eecae390f1f1d1cae6f6c6d732ede5276bf4b9cd29b1d281678c054dc5cc009e",
     "https://deno.land/std@0.201.0/assert/_constants.ts": "8a9da298c26750b28b326b297316cdde860bc237533b07e1337c021379e6b2a9",
     "https://deno.land/std@0.201.0/assert/_diff.ts": "1a3c044aedf77647d6cac86b798c6417603361b66b54c53331b312caeb447aea",
     "https://deno.land/std@0.201.0/assert/_format.ts": "a69126e8a469009adf4cf2a50af889aca364c349797e63174884a52ff75cf4c7",
@@ -1263,6 +1274,15 @@
     "https://deno.land/std@0.208.0/path/windows/separator.ts": "ae21f27015f10510ed1ac4a0ba9c4c9c967cbdd9d9e776a3e4967553c397bd5d",
     "https://deno.land/std@0.208.0/path/windows/to_file_url.ts": "8e9ea9e1ff364aa06fa72999204229952d0a279dbb876b7b838b2b2fea55cce3",
     "https://deno.land/std@0.208.0/path/windows/to_namespaced_path.ts": "e0f4d4a5e77f28a5708c1a33ff24360f35637ba6d8f103d19661255ef7bfd50d",
+    "https://deno.land/x/canvas@v1.4.1/deps.ts": "e956026d98094946166e06d7b799290b732db015813870d84e04e33ab88e98f3",
+    "https://deno.land/x/canvas@v1.4.1/mod.ts": "a4e16972647ceafef58612a377a218372454c99d2c9da615a132694597114f80",
+    "https://deno.land/x/canvas@v1.4.1/src/base64.ts": "0928031fdba0c43b617154fbe2eb7578366460c04da1422933ae5e936d3d0349",
+    "https://deno.land/x/canvas@v1.4.1/src/canvas.ts": "58119999b04f68ebeed2627485c5c24c5b0c029707edde0b6568814f9049a3a8",
+    "https://deno.land/x/canvas@v1.4.1/src/canvaskit.ts": "c3d807472cbb3e1d9fc01bb43ff974ef796c4b010178d1595be5fa793cce5e7d",
+    "https://deno.land/x/canvas@v1.4.1/src/color_util.ts": "28f1072f0a5acbe7add7fac2f452311a47b44c080806fc4057de2d2e405c6c1c",
+    "https://deno.land/x/canvas@v1.4.1/src/lib.js": "bb21711589bfbc8997b455cdf53e3150e23289f3b44809188041b1d2fc7924fa",
+    "https://deno.land/x/canvas@v1.4.1/src/types.ts": "67d5800f8f4b0a407e0251676a03ae91b5f50a3ed53e6b72dc5984113cb93128",
+    "https://deno.land/x/canvas@v1.4.1/src/wasm.js": "449d72cc14fc4142a5853f944df49a744d852981d09c5515528ede8aebb0afda",
     "https://deno.land/x/lodash@4.17.15-es/_DataView.js": "0c4811491cd0c415553118f42f9b31112ed58bdb3941358a99deec9347e7a829",
     "https://deno.land/x/lodash@4.17.15-es/_Hash.js": "7221393e8931adc88430d3badefee1568ffccf91a6efcd9dda2be498f4a09551",
     "https://deno.land/x/lodash@4.17.15-es/_LazyWrapper.js": "77e63978b95b1b1dd6d0d8c58eadeab22a58e00e50491b9dccdc285f7a7ab2d0",
@@ -1923,7 +1943,8 @@
     "https://esm.sh/@pothos/core@3.21.0/denonext/core.mjs": "2a837a980d7ecb8b2fbb4ffe4988b7b69a94e70e5345619def875a8c566a8985",
     "https://esm.sh/@pothos/core@3.21.0/denonext/esm/types/index.mjs": "b824142da326cd4febd567c9d0186d9eb5e127b9ee4c5aff6011457743d37063",
     "https://esm.sh/graphql@16.11.0/denonext/graphql.mjs": "8c5739f174b1c571d8ba99412ff2aa777f6f8f6f99870d2bf228ba6a33d6d640",
-    "https://esm.sh/graphql@16.11.0?target=denonext": "2abb740b11edaac95b4257bdea57725fa5680b7d66e78e48fd447766a33ac751"
+    "https://esm.sh/graphql@16.11.0?target=denonext": "2abb740b11edaac95b4257bdea57725fa5680b7d66e78e48fd447766a33ac751",
+    "https://unpkg.com/canvaskit-wasm@0.39.1/bin/canvaskit.js": "f3608bd2818d1113ad0005d60ea13be03b89f10f6d33ce87c5cc9a22ea370fae"
   },
   "workspace": {
     "dependencies": [

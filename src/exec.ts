@@ -189,8 +189,8 @@ async function main() {
         console.error(`Error fetching namespaces: ${response.statusText}`);
         Deno.exit(1);
       }
-      const data = await response.json();
-      console.log(JSON.stringify(data, null, 2));
+      const text = await response.text();
+      console.log(text);
       Deno.exit(0);
     } catch (error) {
       console.error(

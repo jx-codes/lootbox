@@ -50,7 +50,7 @@ export class RouteHandler {
       const namespaces = await this.typeGeneratorManager.getAvailableNamespaces(
         schemas
       );
-      return c.json(namespaces);
+      return c.text(namespaces);
     });
 
     app.get("/rpc-namespaces", async (c) => {

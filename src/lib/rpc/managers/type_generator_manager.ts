@@ -160,7 +160,7 @@ export class TypeGeneratorManager {
    */
   async getAvailableNamespaces(
     mcpSchemas?: McpServerSchemas[]
-  ): Promise<{ rpc: string[]; mcp: string[] }> {
+  ): Promise<string> {
     const { ClientGenerator } = await import(
       "../../type_system/client_generator.ts"
     );
@@ -175,10 +175,27 @@ export class TypeGeneratorManager {
       : [];
 
     const generator = new ClientGenerator();
-    return generator.getAvailableNamespaces(
+    const namespaces = generator.getAvailableNamespaces(
       rpcExtractionResults,
       mcpExtractionResults
     );
+
+    // Format as text with <namespaces> tags
+    let output = "<namespaces>\n";
+
+    if (namespaces.length > 0) {
+      for (const ns of namespaces) {
+        output += `- ${ns.name} (${ns.functionCount} function${
+          ns.functionCount !== 1 ? "s" : ""
+        })\n`;
+      }
+    } else {
+      output += "(none)\n";
+    }
+
+    output += "</namespaces>";
+
+    return output;
   }
 
   /**
@@ -210,14 +227,9 @@ export class TypeGeneratorManager {
     let output = "Available Namespaces:\n\n";
     output += "<namespaces>\n";
 
-    // Combine RPC and MCP namespaces (MCP already has mcp_ prefix from getNamespaceMetadata)
-    const allNamespaces = [
-      ...metadata.rpc,
-      ...metadata.mcp,
-    ];
-
-    if (allNamespaces.length > 0) {
-      for (const ns of allNamespaces) {
+    // metadata is already a unified array
+    if (metadata.length > 0) {
+      for (const ns of metadata) {
         output += `- ${ns.name} (${ns.functionCount} function${
           ns.functionCount !== 1 ? "s" : ""
         })`;

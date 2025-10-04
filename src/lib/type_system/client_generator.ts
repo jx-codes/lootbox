@@ -709,14 +709,22 @@ export interface RpcResponse {
   getAvailableNamespaces(
     rpcResults: ExtractionResult[],
     mcpResults: ExtractionResult[]
-  ): { rpc: string[]; mcp: string[] } {
+  ): Array<{ name: string; functionCount: number }> {
     const rpcGrouped = this.groupFunctionsByNamespace(rpcResults);
     const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
 
-    return {
-      rpc: Object.keys(rpcGrouped),
-      mcp: Object.keys(mcpGrouped).map(ns => `mcp_${ns}`),
-    };
+    // Build unified namespace list with function counts
+    const rpcNamespaces = Object.entries(rpcGrouped).map(([name, results]) => ({
+      name,
+      functionCount: results.reduce((sum, r) => sum + r.functions.length, 0)
+    }));
+
+    const mcpNamespaces = Object.entries(mcpGrouped).map(([name, results]) => ({
+      name: `mcp_${name}`,
+      functionCount: results.reduce((sum, r) => sum + r.functions.length, 0)
+    }));
+
+    return [...rpcNamespaces, ...mcpNamespaces];
   }
 
   /**
@@ -725,7 +733,7 @@ export interface RpcResponse {
   getNamespaceMetadata(
     rpcResults: ExtractionResult[],
     mcpResults: ExtractionResult[]
-  ): { rpc: NamespaceInfo[]; mcp: NamespaceInfo[] } {
+  ): NamespaceInfo[] {
     const rpcGrouped = this.groupFunctionsByNamespace(rpcResults);
     const mcpGrouped = this.groupFunctionsByNamespace(mcpResults);
 
@@ -754,9 +762,9 @@ export interface RpcResponse {
       });
     };
 
-    return {
-      rpc: buildNamespaceInfo(rpcGrouped, false),
-      mcp: buildNamespaceInfo(mcpGrouped, true),
-    };
+    return [
+      ...buildNamespaceInfo(rpcGrouped, false),
+      ...buildNamespaceInfo(mcpGrouped, true),
+    ];
   }
 }
