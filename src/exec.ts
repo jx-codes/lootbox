@@ -191,7 +191,7 @@ async function main() {
       }
       const text = await response.text();
       console.log(
-        `${text}\n\n Suggested Next Step: lootbox --types <namespace1>,..,<namespace2> Usage: tools.<namespace>.<function>({ args })`
+        `${text}\n\nSuggested Next Step: lootbox --types <namespace1>,..,<namespace2>\nUsage: tools.<namespace>.<function>({ args })`
       );
       Deno.exit(0);
     } catch (error) {
