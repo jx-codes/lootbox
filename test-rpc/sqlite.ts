@@ -36,7 +36,7 @@ export async function execute(args: ExecuteArgs): Promise<ExecuteResult> {
   const db = await getDb();
 
   try {
-    db.execute(args.sql);
+    db.query(args.sql, args.params || []);
 
     return {
       success: true,

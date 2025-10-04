@@ -174,10 +174,7 @@ async function main() {
   try {
     const configText = await Deno.readTextFile("lootbox.config.json");
     config = JSON.parse(configText);
-  } catch {
-    console.warn("Config file not found or not readable, use defaults");
-    // Config file not found or not readable, use defaults
-  }
+  } catch {}
 
   // Priority: CLI arg > config file > default
   const serverUrl =
