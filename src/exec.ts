@@ -230,6 +230,11 @@ async function main() {
     const filePath = args._[0] as string;
     try {
       script = await Deno.readTextFile(filePath);
+
+      if (!Deno.stdin.isTerminal()) {
+        const stdinData = await readStdin();
+        script = `const $STDIN = ${JSON.stringify(stdinData)};\n${script}`;
+      }
     } catch (error) {
       console.error(
         `Error reading file '${filePath}':`,
