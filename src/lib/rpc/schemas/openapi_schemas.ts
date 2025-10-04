@@ -6,9 +6,9 @@ export const HealthResponseSchema = z.object({
 });
 
 // Namespaces endpoint schemas
-export const NamespacesResponseSchema = z.object({
-  rpc: z.array(z.string()).openapi({ example: ["filedb", "zendesk"] }),
-  mcp: z.array(z.string()).openapi({ example: ["best-practices", "ide", "codemode"] }),
+export const NamespacesResponseSchema = z.string().openapi({
+  description: "List of available namespaces with function counts",
+  example: "<namespaces>\n- fs (12 functions)\n- db (8 functions)\n- mcp_bestpractices (5 functions)\n</namespaces>",
 });
 
 // RPC namespace metadata schemas

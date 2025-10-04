@@ -82,12 +82,12 @@ export class OpenApiRouteHandler {
         tags: ["Namespaces"],
         summary: "List all available namespaces",
         description:
-          "Returns RPC and MCP namespaces available in the runtime. RPC namespaces are user-defined functions, MCP namespaces are Model Context Protocol integrations.",
+          "Returns all available namespaces with function counts. MCP namespaces are prefixed with 'mcp_'.",
         responses: {
           200: {
             description: "Successfully retrieved namespace list",
             content: {
-              "application/json": {
+              "text/plain": {
                 schema: NamespacesResponseSchema,
               },
             },
@@ -101,7 +101,7 @@ export class OpenApiRouteHandler {
         const namespaces = await this.typeGeneratorManager.getAvailableNamespaces(
           schemas
         );
-        return c.json(namespaces);
+        return c.text(namespaces);
       }
     );
 
