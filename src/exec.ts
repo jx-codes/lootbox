@@ -190,7 +190,9 @@ async function main() {
         Deno.exit(1);
       }
       const text = await response.text();
-      console.log(text);
+      console.log(
+        `${text}\n\n Suggested Next Step: lootbox --types <namespace1>,..,<namespace2> Usage: tools.<namespace>.<function>({ args })`
+      );
       Deno.exit(0);
     } catch (error) {
       console.error(
