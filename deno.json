@@ -13,7 +13,7 @@
     "fmt": "deno fmt",
     "lint": "deno lint",
     "compile": "deno task ui:build && deno compile --allow-all --include ui/dist -o lootbox-runtime src/main.ts && deno task compile-exec",
-    "compile-exec": "deno compile --allow-all -o lootbox src/exec.ts",
+    "compile-exec": "deno compile --allow-all -o lootbox src/lootbox-cli.ts",
     "ui:dev": "cd ui && deno run -A npm:vite",
     "ui:build": "cd ui && deno run -A npm:vite build",
     "ui:preview": "cd ui && deno run -A npm:vite preview"
