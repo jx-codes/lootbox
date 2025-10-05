@@ -1,3 +1,4 @@
+import { HandlebarsJS } from "https://deno.land/x/handlebars/mod.ts";
 import { parse as parseYaml } from "jsr:@std/yaml@^1.0.0";
 import type { FlowState } from "./types.ts";
 
@@ -12,6 +13,20 @@ interface WorkflowStep {
 interface WorkflowFile {
   steps: WorkflowStep[];
 }
+
+interface TemplateContext {
+  loop?: number; // Current loop iteration (1-based), only in loop steps
+  step: number; // Current step number (1-based)
+  totalSteps: number; // Total steps in workflow
+}
+
+// Register Handlebars helpers
+HandlebarsJS.registerHelper("eq", (a: unknown, b: unknown) => a === b);
+HandlebarsJS.registerHelper("ne", (a: unknown, b: unknown) => a !== b);
+HandlebarsJS.registerHelper("lt", (a: number, b: number) => a < b);
+HandlebarsJS.registerHelper("gt", (a: number, b: number) => a > b);
+HandlebarsJS.registerHelper("lte", (a: number, b: number) => a <= b);
+HandlebarsJS.registerHelper("gte", (a: number, b: number) => a >= b);
 
 export async function loadWorkflowState(): Promise<FlowState | null> {
   try {
@@ -43,7 +58,9 @@ function parseWorkflowFile(content: string): WorkflowStep[] {
     return parsed.steps;
   } catch (error) {
     throw new Error(
-      `Failed to parse workflow file: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to parse workflow file: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 }
@@ -61,11 +78,28 @@ async function displayStep(state: FlowState, endLoop = false): Promise<void> {
   const step = steps[state.section];
   const iteration = state.loopIteration || 1;
 
+  // Build template context
+  const context: TemplateContext = {
+    step: state.section + 1,
+    totalSteps: steps.length,
+  };
+
+  // Only include loop if this is a loop step
+  if (step.loop) {
+    context.loop = iteration;
+  }
+
+  // Render title and prompt through Handlebars
+  const titleTemplate = HandlebarsJS.compile(step.title);
+  const promptTemplate = HandlebarsJS.compile(step.prompt);
+  const renderedTitle = titleTemplate(context);
+  const renderedPrompt = promptTemplate(context);
+
   // Display step title
-  console.log(`## ${step.title}`);
+  console.log(`## ${renderedTitle}`);
 
   // Display prompt first (main content)
-  console.log(`\n${step.prompt}`);
+  console.log(`\n${renderedPrompt}`);
 
   // Display metadata at the bottom, separated
   console.log(`\n---`);
@@ -83,14 +117,18 @@ async function displayStep(state: FlowState, endLoop = false): Promise<void> {
     );
 
     if (atMax) {
-      console.log(`Status: Maximum iterations reached. Auto-advancing to next step.`);
+      console.log(
+        `Status: Maximum iterations reached. Auto-advancing to next step.`
+      );
     } else if (canEndLoop) {
       console.log(
         `Next: 'lootbox workflow step --end-loop' to advance, 'lootbox workflow step' to repeat`
       );
     } else {
       console.log(
-        `Required: ${step.loop.min - iteration} more iteration(s) before --end-loop is allowed`
+        `Required: ${
+          step.loop.min - iteration
+        } more iteration(s) before --end-loop is allowed`
       );
     }
   }
@@ -103,7 +141,9 @@ export async function workflowStart(file: string): Promise<void> {
 
     if (steps.length === 0) {
       console.error(`Error: No steps found in ${file}`);
-      console.error("Workflow files should have a 'steps' array with at least one step");
+      console.error(
+        "Workflow files should have a 'steps' array with at least one step"
+      );
       Deno.exit(1);
     }
 
@@ -156,7 +196,11 @@ export async function workflowStep(endLoop = false): Promise<void> {
       }
 
       // End loop and advance, then display next step
-      await saveWorkflowState({ ...state, section: state.section + 1, loopIteration: undefined });
+      await saveWorkflowState({
+        ...state,
+        section: state.section + 1,
+        loopIteration: undefined,
+      });
       console.log(`Loop ended. Advancing to next step...\n`);
 
       // Recursively display next step
@@ -174,14 +218,22 @@ export async function workflowStep(endLoop = false): Promise<void> {
     if (step.loop) {
       if (iteration >= step.loop.max) {
         // Max reached, auto-advance
-        await saveWorkflowState({ ...state, section: state.section + 1, loopIteration: undefined });
+        await saveWorkflowState({
+          ...state,
+          section: state.section + 1,
+          loopIteration: undefined,
+        });
       } else {
         // Increment iteration, stay on same section
         await saveWorkflowState({ ...state, loopIteration: iteration + 1 });
       }
     } else {
       // No loop, advance to next section
-      await saveWorkflowState({ ...state, section: state.section + 1, loopIteration: undefined });
+      await saveWorkflowState({
+        ...state,
+        section: state.section + 1,
+        loopIteration: undefined,
+      });
     }
   } catch (error) {
     console.error(

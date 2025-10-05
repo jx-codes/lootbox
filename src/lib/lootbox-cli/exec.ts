@@ -103,7 +103,7 @@ export async function getScriptFromArgs(
       if (!Deno.stdin.isTerminal()) {
         const stdinData = await readStdin();
         script = `const $STDIN = ${JSON.stringify(stdinData)};
-const stdinOrDefault = (defaultValue = "") => {
+const stdin = (defaultValue = "") => {
   const value = typeof $STDIN !== 'undefined' ? $STDIN : defaultValue;
   return {
     text: () => value.trim(),

@@ -17,7 +17,7 @@
  */
 
 import { parseArgs } from "@std/cli";
-import { showHelp, showConfigHelp } from "./lib/lootbox-cli/help.ts";
+import { showHumanHelp, showLlmHelp, showConfigHelp } from "./lib/lootbox-cli/help.ts";
 import { loadConfig } from "./lib/lootbox-cli/config.ts";
 import { wsUrlToHttpUrl } from "./lib/lootbox-cli/utils.ts";
 import { executeScript, getScriptFromArgs } from "./lib/lootbox-cli/exec.ts";
@@ -31,7 +31,7 @@ import {
 async function main() {
   const args = parseArgs(Deno.args, {
     string: ["eval", "server", "types"],
-    boolean: ["help", "version", "namespaces", "config-help", "end-loop"],
+    boolean: ["help", "human-help", "llm-help", "version", "namespaces", "config-help", "end-loop"],
     alias: {
       e: "eval",
       s: "server",
@@ -40,8 +40,13 @@ async function main() {
     },
   });
 
-  if (args.help) {
-    showHelp();
+  if (args.help || args["human-help"]) {
+    showHumanHelp();
+    Deno.exit(0);
+  }
+
+  if (args["llm-help"]) {
+    showLlmHelp();
     Deno.exit(0);
   }
 

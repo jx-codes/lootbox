@@ -1,4 +1,53 @@
-export function showHelp() {
+export function showLlmHelp() {
+  console.log(`lootbox - Script Execution Reference
+
+Sandboxed TypeScript runtime for executing scripts with network access and
+discoverable tool functions.
+
+DISCOVERY:
+  lootbox --namespaces              List available function namespaces
+  lootbox --types <ns1,ns2>         Get TypeScript signatures for namespaces
+
+EXECUTION:
+  lootbox file.ts                   Execute TypeScript file
+  lootbox -e 'code'                 Execute inline code
+  cat file.ts | lootbox             Execute from stdin
+
+AVAILABLE APIS:
+  tools.<namespace>.<function>({ arg: value })
+  console.log() / console.error()
+  fetch(url, options)               HTTP requests
+  Promise.all([...])                Parallel execution
+  stdin(default = "")                    Access piped stdin data
+    .text()                         Returns trimmed text
+    .json()                         Returns parsed JSON or null
+    .lines()                        Returns array of non-empty lines
+    .raw()                          Returns raw input
+
+CONSTRAINTS:
+  • 10 second execution timeout
+  • Sandboxed execution for safety
+
+EXAMPLES:
+  # Discover and use tools
+  lootbox --namespaces
+  lootbox --types namespace1
+  lootbox -e 'console.log(await tools.namespace1.func({arg: "value"}))'
+
+  # Parallel execution
+  lootbox -e 'const [r1, r2] = await Promise.all([tools.ns1.f1({}), tools.ns2.f2({})])'
+
+  # Process piped data
+  cat data.json | lootbox -e 'console.log(stdin().json())'
+
+WORKFLOW EXECUTION:
+  workflow step                     Execute current workflow step
+  workflow step --end-loop          Advance from loop (if min iterations met)
+  workflow status                   Check workflow position
+`);
+}
+
+export function showHumanHelp() {
   console.log(`lootbox - Sandboxed TypeScript runtime with network access
 
 Write scripts with fetch() for web requests and the 'tools' object for
