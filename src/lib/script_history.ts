@@ -1,67 +1,17 @@
 // Script execution history storage for pattern extraction and library building
-// Uses time-based chunking: one JSONL file per day for efficient querying
+// Uses SQLite database for efficient querying and storage
 
-import { join } from "jsr:@std/path";
+import { getDb, closeDb as closeDatabase } from "./db.ts";
 
 export interface ScriptRun {
-  id: string;           // Unique identifier (timestamp-randomId)
-  timestamp: number;    // Unix timestamp in milliseconds
-  script: string;       // The TypeScript code executed
-  success: boolean;     // Whether execution succeeded
-  output?: unknown;     // Success output (if any)
-  error?: string;       // Error message (if failed)
-  durationMs?: number;  // Execution duration in milliseconds
-  sessionId?: string;   // Optional session identifier for grouping related runs
-}
-
-/**
- * Get platform-specific data directory following XDG Base Directory spec
- */
-function getDefaultDataDir(): string {
-  const platform = Deno.build.os;
-
-  if (platform === "windows") {
-    const appData = Deno.env.get("APPDATA") || Deno.env.get("USERPROFILE");
-    return appData ? join(appData, "lootbox") : join(Deno.cwd(), "lootbox-data");
-  } else if (platform === "darwin") {
-    const home = Deno.env.get("HOME");
-    return home ? join(home, "Library", "Application Support", "lootbox") : join(Deno.cwd(), "lootbox-data");
-  } else {
-    // Linux/Unix - follow XDG spec
-    const xdgDataHome = Deno.env.get("XDG_DATA_HOME");
-    const home = Deno.env.get("HOME");
-    if (xdgDataHome) {
-      return join(xdgDataHome, "lootbox");
-    } else if (home) {
-      return join(home, ".local", "share", "lootbox");
-    }
-    return join(Deno.cwd(), "lootbox-data");
-  }
-}
-
-/**
- * Get the script history directory path
- * Uses platform-specific standard location or user-provided override
- */
-async function getHistoryDir(): Promise<string> {
-  const { get_config } = await import("./get_config.ts");
-  const config = await get_config();
-  const baseDir = config.lootbox_data_dir || getDefaultDataDir();
-  return join(baseDir, "script-history");
-}
-
-/**
- * Ensure the script history directory exists
- */
-async function ensureHistoryDir(): Promise<void> {
-  const dir = await getHistoryDir();
-  try {
-    await Deno.mkdir(dir, { recursive: true });
-  } catch (error) {
-    if (!(error instanceof Deno.errors.AlreadyExists)) {
-      throw error;
-    }
-  }
+  id: string; // Unique identifier (timestamp-randomId)
+  timestamp: number; // Unix timestamp in milliseconds
+  script: string; // The TypeScript code executed
+  success: boolean; // Whether execution succeeded
+  output?: unknown; // Success output (if any)
+  error?: string; // Error message (if failed)
+  durationMs?: number; // Execution duration in milliseconds
+  sessionId?: string; // Optional session identifier for grouping related runs
 }
 
 /**
@@ -74,18 +24,7 @@ function generateRunId(): string {
 }
 
 /**
- * Get the filename for a given date (YYYY-MM-DD.jsonl)
- */
-function getChunkFilename(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}.jsonl`;
-}
-
-/**
- * Save a script run to disk (async, non-blocking)
- * Appends to daily JSONL file
+ * Save a script run to database (async, non-blocking)
  */
 export async function saveScriptRun(run: Omit<ScriptRun, "id">): Promise<void> {
   const id = generateRunId();
@@ -94,15 +33,30 @@ export async function saveScriptRun(run: Omit<ScriptRun, "id">): Promise<void> {
   // Don't await - fire and forget
   (async () => {
     try {
-      await ensureHistoryDir();
-      const filename = getChunkFilename(new Date(scriptRun.timestamp));
-      const filepath = join(await getHistoryDir(), filename);
+      const db = await getDb();
 
-      // Append as single line JSONL
-      const jsonLine = JSON.stringify(scriptRun) + '\n';
-      await Deno.writeTextFile(filepath, jsonLine, { append: true });
+      // Serialize output to JSON if present
+      const outputJson = scriptRun.output !== undefined
+        ? JSON.stringify(scriptRun.output)
+        : null;
 
-      console.error(`📝 Saved to ${filename}`);
+      db.query(
+        `INSERT INTO script_runs (
+          id, timestamp, script, success, output, error, duration_ms, session_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          scriptRun.id,
+          scriptRun.timestamp,
+          scriptRun.script,
+          scriptRun.success ? 1 : 0,
+          outputJson,
+          scriptRun.error || null,
+          scriptRun.durationMs || null,
+          scriptRun.sessionId || null,
+        ]
+      );
+
+      console.error(`📝 Saved script run ${scriptRun.id}`);
     } catch (error) {
       console.error(`❌ Failed to save script run ${id}:`, error);
     }
@@ -110,42 +64,40 @@ export async function saveScriptRun(run: Omit<ScriptRun, "id">): Promise<void> {
 }
 
 /**
- * Load all script runs from disk (for librarian agent)
+ * Load all script runs from database
  * Returns sorted by timestamp (oldest first)
  */
 export async function loadScriptHistory(): Promise<ScriptRun[]> {
   try {
-    await ensureHistoryDir();
-    const dir = await getHistoryDir();
-    const runs: ScriptRun[] = [];
+    const db = await getDb();
 
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && entry.name.endsWith('.jsonl')) {
-        try {
-          const filepath = join(dir, entry.name);
-          const content = await Deno.readTextFile(filepath);
+    const results = db.queryEntries<{
+      id: string;
+      timestamp: number;
+      script: string;
+      success: number;
+      output: string | null;
+      error: string | null;
+      duration_ms: number | null;
+      session_id: string | null;
+    }>(
+      `SELECT id, timestamp, script, success, output, error, duration_ms, session_id
+       FROM script_runs
+       ORDER BY timestamp ASC`
+    );
 
-          // Parse JSONL: one JSON object per line
-          for (const line of content.split('\n')) {
-            if (line.trim()) {
-              try {
-                const run = JSON.parse(line) as ScriptRun;
-                runs.push(run);
-              } catch (parseError) {
-                console.error(`Failed to parse line in ${entry.name}:`, parseError);
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Failed to load script file ${entry.name}:`, error);
-        }
-      }
-    }
-
-    // Sort by timestamp
-    return runs.sort((a, b) => a.timestamp - b.timestamp);
+    return results.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      script: row.script,
+      success: row.success === 1,
+      output: row.output ? JSON.parse(row.output) : undefined,
+      error: row.error || undefined,
+      durationMs: row.duration_ms || undefined,
+      sessionId: row.session_id || undefined,
+    }));
   } catch (error) {
-    console.error('Failed to load script history:', error);
+    console.error("Failed to load script history:", error);
     return [];
   }
 }
@@ -154,8 +106,40 @@ export async function loadScriptHistory(): Promise<ScriptRun[]> {
  * Get recent script runs (last N runs)
  */
 export async function getRecentRuns(count: number): Promise<ScriptRun[]> {
-  const allRuns = await loadScriptHistory();
-  return allRuns.slice(-count);
+  try {
+    const db = await getDb();
+
+    const results = db.queryEntries<{
+      id: string;
+      timestamp: number;
+      script: string;
+      success: number;
+      output: string | null;
+      error: string | null;
+      duration_ms: number | null;
+      session_id: string | null;
+    }>(
+      `SELECT id, timestamp, script, success, output, error, duration_ms, session_id
+       FROM script_runs
+       ORDER BY timestamp DESC
+       LIMIT ?`,
+      [count]
+    );
+
+    return results.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      script: row.script,
+      success: row.success === 1,
+      output: row.output ? JSON.parse(row.output) : undefined,
+      error: row.error || undefined,
+      durationMs: row.duration_ms || undefined,
+      sessionId: row.session_id || undefined,
+    }));
+  } catch (error) {
+    console.error("Failed to get recent runs:", error);
+    return [];
+  }
 }
 
 /**
@@ -165,50 +149,67 @@ export async function getRunsInRange(
   startTime: number,
   endTime: number
 ): Promise<ScriptRun[]> {
-  const allRuns = await loadScriptHistory();
-  return allRuns.filter(
-    (run) => run.timestamp >= startTime && run.timestamp <= endTime
-  );
+  try {
+    const db = await getDb();
+
+    const results = db.queryEntries<{
+      id: string;
+      timestamp: number;
+      script: string;
+      success: number;
+      output: string | null;
+      error: string | null;
+      duration_ms: number | null;
+      session_id: string | null;
+    }>(
+      `SELECT id, timestamp, script, success, output, error, duration_ms, session_id
+       FROM script_runs
+       WHERE timestamp >= ? AND timestamp <= ?
+       ORDER BY timestamp ASC`,
+      [startTime, endTime]
+    );
+
+    return results.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      script: row.script,
+      success: row.success === 1,
+      output: row.output ? JSON.parse(row.output) : undefined,
+      error: row.error || undefined,
+      durationMs: row.duration_ms || undefined,
+      sessionId: row.session_id || undefined,
+    }));
+  } catch (error) {
+    console.error("Failed to get runs in range:", error);
+    return [];
+  }
 }
 
 /**
- * Delete old script runs (keep only last N days of chunks)
+ * Delete old script runs (keep only last N days)
  * Useful for preventing unlimited storage growth
  */
 export async function cleanupOldRuns(keepDays: number): Promise<number> {
   try {
-    await ensureHistoryDir();
-    const dir = await getHistoryDir();
-    const cutoffTime = Date.now() - (keepDays * 24 * 60 * 60 * 1000);
-    let deletedCount = 0;
+    const db = await getDb();
+    const cutoffTime = Date.now() - keepDays * 24 * 60 * 60 * 1000;
 
-    for await (const entry of Deno.readDir(dir)) {
-      if (entry.isFile && entry.name.endsWith('.jsonl')) {
-        try {
-          // Parse date from filename (YYYY-MM-DD.jsonl)
-          const dateMatch = entry.name.match(/^(\d{4})-(\d{2})-(\d{2})\.jsonl$/);
-          if (dateMatch) {
-            const [_, year, month, day] = dateMatch;
-            const fileDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    // Get count before deletion
+    const countBefore = db.queryEntries<{ count: number }>(
+      `SELECT COUNT(*) as count FROM script_runs WHERE timestamp < ?`,
+      [cutoffTime]
+    );
 
-            if (fileDate.getTime() < cutoffTime) {
-              const filepath = join(dir, entry.name);
-              await Deno.remove(filepath);
-              deletedCount++;
-            }
-          }
-        } catch (error) {
-          console.error(`Failed to delete ${entry.name}:`, error);
-        }
-      }
-    }
+    const deletedCount = countBefore[0]?.count || 0;
 
     if (deletedCount > 0) {
-      console.error(`🧹 Cleaned up ${deletedCount} old daily chunk(s)`);
+      db.query(`DELETE FROM script_runs WHERE timestamp < ?`, [cutoffTime]);
+      console.error(`🧹 Cleaned up ${deletedCount} old script run(s)`);
     }
+
     return deletedCount;
   } catch (error) {
-    console.error('Failed to cleanup old runs:', error);
+    console.error("Failed to cleanup old runs:", error);
     return 0;
   }
 }
@@ -218,29 +219,88 @@ export async function cleanupOldRuns(keepDays: number): Promise<number> {
  */
 export async function loadRunsForDate(date: Date): Promise<ScriptRun[]> {
   try {
-    await ensureHistoryDir();
-    const filename = getChunkFilename(date);
-    const filepath = join(await getHistoryDir(), filename);
+    const db = await getDb();
 
-    const content = await Deno.readTextFile(filepath);
-    const runs: ScriptRun[] = [];
+    // Get start and end of day in milliseconds
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    for (const line of content.split('\n')) {
-      if (line.trim()) {
-        try {
-          runs.push(JSON.parse(line) as ScriptRun);
-        } catch (parseError) {
-          console.error(`Failed to parse line:`, parseError);
-        }
-      }
-    }
+    const results = db.queryEntries<{
+      id: string;
+      timestamp: number;
+      script: string;
+      success: number;
+      output: string | null;
+      error: string | null;
+      duration_ms: number | null;
+      session_id: string | null;
+    }>(
+      `SELECT id, timestamp, script, success, output, error, duration_ms, session_id
+       FROM script_runs
+       WHERE timestamp >= ? AND timestamp <= ?
+       ORDER BY timestamp ASC`,
+      [startOfDay.getTime(), endOfDay.getTime()]
+    );
 
-    return runs.sort((a, b) => a.timestamp - b.timestamp);
+    return results.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      script: row.script,
+      success: row.success === 1,
+      output: row.output ? JSON.parse(row.output) : undefined,
+      error: row.error || undefined,
+      durationMs: row.duration_ms || undefined,
+      sessionId: row.session_id || undefined,
+    }));
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return [];
-    }
     console.error(`Failed to load runs for ${date}:`, error);
     return [];
   }
 }
+
+/**
+ * Get script runs by session ID
+ */
+export async function getRunsBySession(sessionId: string): Promise<ScriptRun[]> {
+  try {
+    const db = await getDb();
+
+    const results = db.queryEntries<{
+      id: string;
+      timestamp: number;
+      script: string;
+      success: number;
+      output: string | null;
+      error: string | null;
+      duration_ms: number | null;
+      session_id: string | null;
+    }>(
+      `SELECT id, timestamp, script, success, output, error, duration_ms, session_id
+       FROM script_runs
+       WHERE session_id = ?
+       ORDER BY timestamp ASC`,
+      [sessionId]
+    );
+
+    return results.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      script: row.script,
+      success: row.success === 1,
+      output: row.output ? JSON.parse(row.output) : undefined,
+      error: row.error || undefined,
+      durationMs: row.duration_ms || undefined,
+      sessionId: row.session_id || undefined,
+    }));
+  } catch (error) {
+    console.error(`Failed to get runs for session ${sessionId}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Close the database connection
+ */
+export const closeDb = closeDatabase;

@@ -103,11 +103,15 @@ async function main() {
   };
 
   ws.onerror = (error) => {
-    console.error(`[Worker ${namespace}] WebSocket error:`, error);
+    // Suppress "Unexpected EOF" errors on shutdown
+    const errorEvent = error as ErrorEvent;
+    if (!errorEvent.message?.includes("Unexpected EOF")) {
+      console.error(`[Worker ${namespace}] WebSocket error:`, error);
+    }
   };
 
   ws.onclose = () => {
-    console.error(`[Worker ${namespace}] WebSocket closed, exiting`);
+    // Silent exit on close
     Deno.exit(0);
   };
 

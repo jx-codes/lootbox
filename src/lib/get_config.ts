@@ -2,6 +2,7 @@ import { parseArgs } from "@std/cli";
 import type { Config, McpServerConfig } from "./lootbox-cli/types.ts";
 
 interface ResolvedConfig {
+  lootbox_root: string;
   tools_dir: string;
   port: number;
   lootbox_data_dir: string | null;
@@ -19,9 +20,9 @@ async function loadConfig(): Promise<Config> {
 
 export const get_config = async (): Promise<ResolvedConfig> => {
   const args = parseArgs(Deno.args, {
-    string: ["tools-dir", "port", "lootbox-data-dir"],
+    string: ["lootbox-root", "port", "lootbox-data-dir"],
     alias: {
-      "tools-dir": "t",
+      "lootbox-root": "r",
       "port": "p",
       "lootbox-data-dir": "d",
     },
@@ -31,25 +32,11 @@ export const get_config = async (): Promise<ResolvedConfig> => {
   const config = await loadConfig();
 
   // Priority: flag > config > defaults
-  const toolsDir = (args["tools-dir"] as string) || config.toolsDir;
-  const portStr = (args.port as string) || config.port?.toString();
+  const lootboxRoot = (args["lootbox-root"] as string) || config.lootboxRoot || ".lootbox";
+  const toolsDir = `${lootboxRoot}/tools`;
+  const portStr = (args.port as string) || config.port?.toString() || "8080";
   const lootboxDataDir = (args["lootbox-data-dir"] as string) || config.lootboxDataDir || null;
   const mcpServers = config.mcpServers || null;
-
-  // Validate required fields
-  if (!toolsDir) {
-    console.error("Error: --tools-dir is required (via flag or lootbox.config.json)");
-    console.error("Usage: lootbox server --tools-dir <path> --port <number>");
-    console.error("Or set 'toolsDir' in lootbox.config.json");
-    Deno.exit(1);
-  }
-
-  if (!portStr) {
-    console.error("Error: --port is required (via flag or lootbox.config.json)");
-    console.error("Usage: lootbox server --tools-dir <path> --port <number>");
-    console.error("Or set 'port' in lootbox.config.json");
-    Deno.exit(1);
-  }
 
   const port = parseInt(portStr, 10);
   if (isNaN(port)) {
@@ -58,6 +45,7 @@ export const get_config = async (): Promise<ResolvedConfig> => {
   }
 
   return {
+    lootbox_root: lootboxRoot,
     tools_dir: toolsDir,
     port: port,
     lootbox_data_dir: lootboxDataDir,

@@ -12,23 +12,23 @@ function sanitizeServerName(name: string): string {
 
 export async function startServer(args: string[]): Promise<void> {
   const parsedArgs = parseArgs(args, {
-    string: ["port", "tools-dir", "lootbox-data-dir"],
+    string: ["port", "lootbox-root", "lootbox-data-dir"],
     alias: {
       p: "port",
-      t: "tools-dir",
+      r: "lootbox-root",
       d: "lootbox-data-dir",
     },
   });
 
   // Override config with CLI args if provided
   const originalArgs = Deno.args;
-  if (parsedArgs.port || parsedArgs["tools-dir"] || parsedArgs["lootbox-data-dir"]) {
+  if (parsedArgs.port || parsedArgs["lootbox-root"] || parsedArgs["lootbox-data-dir"]) {
     const customArgs = [];
     if (parsedArgs.port) {
       customArgs.push("--port", String(parsedArgs.port));
     }
-    if (parsedArgs["tools-dir"]) {
-      customArgs.push("--tools-dir", parsedArgs["tools-dir"] as string);
+    if (parsedArgs["lootbox-root"]) {
+      customArgs.push("--lootbox-root", parsedArgs["lootbox-root"] as string);
     }
     if (parsedArgs["lootbox-data-dir"]) {
       customArgs.push("--lootbox-data-dir", parsedArgs["lootbox-data-dir"] as string);

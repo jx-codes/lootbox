@@ -1,5 +1,4 @@
 {
   "port": 8080,
-  "toolsDir": "./tools",
-  "lootboxDataDir": "./data"
+  "lootboxRoot": ".lootbox"
 }

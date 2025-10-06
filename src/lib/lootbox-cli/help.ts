@@ -41,15 +41,10 @@ EXAMPLES:
   cat data.json | lootbox -e 'console.log(stdin().json())'
 
 WORKFLOW EXECUTION:
-  workflow step                     Execute current workflow step
-  workflow step --end-loop          Advance from loop (if min iterations met)
-  workflow status                   Check workflow position
-
-SERVER:
-  server [OPTIONS]                  Start the WebSocket RPC server
-    --port <port>                   Server port (default: 8080)
-    --tools-dir <path>              Tools/functions directory
-    --lootbox-data-dir <path>       Data directory (optional)
+  workflow step                             Execute current workflow step
+  workflow step --end-loop="reason"         Advance from loop with reason (if min iterations met)
+  workflow abort --abort="reason"           Abort workflow with reason
+  workflow status                           Check workflow position
 `);
 }
 
@@ -99,17 +94,18 @@ Options:
   -v, --version               Show version
 
 Workflow Commands:
-  workflow start <file>       Start a new workflow from a YAML file
-  workflow step               Show/repeat current step
-  workflow step --end-loop    End loop early and advance (only after min iterations)
-  workflow reset              Reset workflow to the beginning
-  workflow status             Show current workflow status
+  workflow start <file>                   Start a new workflow from a YAML file
+  workflow step                           Show/repeat current step
+  workflow step --end-loop="reason"       End loop early and advance with reason (only after min iterations)
+  workflow abort --abort="reason"         Abort workflow with reason
+  workflow reset                          Reset workflow to the beginning
+  workflow status                         Show current workflow status
 
 Server Commands:
   server                      Start the WebSocket RPC server
     --port <port>             Server port (default: 8080)
-    --tools-dir <path>        Tools/functions directory (default: ./tools)
-    --lootbox-data-dir <path> Data directory (optional)
+    --lootbox-root <path>     Lootbox root directory (default: .lootbox)
+    --lootbox-data-dir <path> Data directory (optional, defaults to ~/.local/share/lootbox)
 
 Examples:
   # Discover available functions
@@ -129,13 +125,14 @@ Examples:
 
   # Workflow execution
   lootbox workflow start tutorial.yaml
-  lootbox workflow step                 # Show/repeat current step
-  lootbox workflow step --end-loop      # End loop early (if min met)
-  lootbox workflow status               # Check progress
+  lootbox workflow step                                    # Show/repeat current step
+  lootbox workflow step --end-loop="completed the task"   # End loop early with reason
+  lootbox workflow abort --abort="switching approach"     # Abort workflow
+  lootbox workflow status                                 # Check progress
 
   # Server mode
-  lootbox server --port 8080 --tools-dir ./tools
-  lootbox server --port 9000 --tools-dir ./tools --lootbox-data-dir ./data
+  lootbox server                        # Uses defaults (port 8080, ./lootbox/tools)
+  lootbox server --port 9000            # Custom port
 
   # Workflow file format (YAML):
   # steps:
@@ -145,8 +142,8 @@ Examples:
   #   - title: Loop example
   #     loop: { min: 2, max: 5 }
   #     prompt: |
-  #       This step repeats 2-5 times. 'workflow step' repeats it,
-  #       'workflow step --end-loop' advances (after min 2 iterations)
+  #       This step repeats 2-5 times. Use 'workflow step' to repeat,
+  #       or 'workflow step --end-loop="reason"' to advance (after min 2 iterations)
 `);
 }
 
@@ -163,8 +160,7 @@ Configuration File:
 Example:
   {
     "port": 8080,
-    "toolsDir": "./tools",
-    "lootboxDataDir": "./data",
+    "lootboxRoot": ".lootbox",
     "mcpServers": {
       "filesystem": {
         "command": "npx",
@@ -174,10 +170,11 @@ Example:
   }
 
 Settings:
-  port              Server port (client derives ws://localhost:{port}/ws)
+  port              Server port (default: 8080, client derives ws://localhost:{port}/ws)
   serverUrl         Override for custom host/protocol (e.g., wss://remote:8080/ws)
-  toolsDir          Directory containing tool functions (.ts files)
-  lootboxDataDir    Optional data directory path
+  lootboxRoot       Root directory for lootbox files (default: .lootbox)
+                    Contains: tools/, workflows/, scripts/
+  lootboxDataDir    Internal data directory (default: ~/.local/share/lootbox)
   mcpServers        MCP server definitions (command, args, env)
 
 Priority (for all settings):

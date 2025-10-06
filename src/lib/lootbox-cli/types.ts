@@ -16,7 +16,7 @@ export interface Config {
 
   // Server settings
   port?: number;
-  toolsDir?: string;
+  lootboxRoot?: string;
   lootboxDataDir?: string;
   mcpServers?: Record<string, McpServerConfig>;
 }
@@ -25,4 +25,5 @@ export interface FlowState {
   file: string;
   section: number;
   loopIteration?: number; // Current iteration count for current step (if looping)
+  sessionId?: string; // Session ID for grouping workflow events
 }

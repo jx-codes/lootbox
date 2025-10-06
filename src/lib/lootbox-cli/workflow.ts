@@ -1,8 +1,12 @@
 import { HandlebarsJS } from "https://deno.land/x/handlebars/mod.ts";
 import { parse as parseYaml } from "jsr:@std/yaml@^1.0.0";
+import { generateSessionId, logWorkflowEvent } from "../workflow_log.ts";
 import type { FlowState } from "./types.ts";
 
 const STATE_FILE = ".lootbox-workflow.json";
+
+// Session ID for current workflow run (generated on start, persisted in state)
+let currentSessionId: string | null = null;
 
 interface WorkflowStep {
   title: string;
@@ -31,7 +35,9 @@ HandlebarsJS.registerHelper("gte", (a: number, b: number) => a >= b);
 export async function loadWorkflowState(): Promise<FlowState | null> {
   try {
     const stateText = await Deno.readTextFile(STATE_FILE);
-    return JSON.parse(stateText);
+    const state = JSON.parse(stateText);
+    currentSessionId = state.sessionId || null;
+    return state;
   } catch {
     return null;
   }
@@ -65,7 +71,11 @@ function parseWorkflowFile(content: string): WorkflowStep[] {
   }
 }
 
-async function displayStep(state: FlowState, endLoop = false): Promise<void> {
+async function displayStep(
+  state: FlowState,
+  endLoop = false,
+  endLoopReason?: string
+): Promise<void> {
   const content = await Deno.readTextFile(state.file);
   const steps = parseWorkflowFile(content);
 
@@ -122,7 +132,7 @@ async function displayStep(state: FlowState, endLoop = false): Promise<void> {
       );
     } else if (canEndLoop) {
       console.log(
-        `Next: 'lootbox workflow step --end-loop' to advance, 'lootbox workflow step' to repeat`
+        `Next: 'lootbox workflow step --end-loop="reason"' to advance, 'lootbox workflow step' to repeat`
       );
     } else {
       console.log(
@@ -134,33 +144,73 @@ async function displayStep(state: FlowState, endLoop = false): Promise<void> {
   }
 }
 
-export async function workflowStart(file: string): Promise<void> {
+async function resolveWorkflowPath(file: string): Promise<string> {
+  // Try the path as-is first
   try {
-    const content = await Deno.readTextFile(file);
+    await Deno.stat(file);
+    return file;
+  } catch {
+    // If not found, try in .lootbox/workflows/
+    const { get_config } = await import("../get_config.ts");
+    const config = await get_config();
+    const fallbackPath = `${config.lootbox_root}/workflows/${file}`;
+    try {
+      await Deno.stat(fallbackPath);
+      return fallbackPath;
+    } catch {
+      // Return original path so error message is accurate
+      return file;
+    }
+  }
+}
+
+export async function workflowStart(file: string): Promise<void> {
+  const resolvedPath = await resolveWorkflowPath(file);
+  try {
+    const content = await Deno.readTextFile(resolvedPath);
     const steps = parseWorkflowFile(content);
 
     if (steps.length === 0) {
-      console.error(`Error: No steps found in ${file}`);
+      console.error(`Error: No steps found in ${resolvedPath}`);
       console.error(
         "Workflow files should have a 'steps' array with at least one step"
       );
       Deno.exit(1);
     }
 
-    await saveWorkflowState({ file, section: 0 });
-    console.log(`Workflow started: ${file}`);
+    // Generate new session ID
+    currentSessionId = generateSessionId();
+
+    await saveWorkflowState({
+      file: resolvedPath,
+      section: 0,
+      sessionId: currentSessionId,
+    });
+
+    // Log workflow start event
+    await logWorkflowEvent({
+      timestamp: Date.now(),
+      event_type: "start",
+      workflow_file: resolvedPath,
+      step_number: null,
+      loop_iteration: null,
+      reason: null,
+      session_id: currentSessionId,
+    });
+
+    console.log(`Workflow started: ${resolvedPath}`);
     console.log(`Total steps: ${steps.length}`);
     console.log(`\nRun 'lootbox workflow step' to see the first step`);
   } catch (error) {
     console.error(
-      `Error reading file '${file}':`,
+      `Error reading file '${resolvedPath}':`,
       error instanceof Error ? error.message : String(error)
     );
     Deno.exit(1);
   }
 }
 
-export async function workflowStep(endLoop = false): Promise<void> {
+export async function workflowStep(endLoopReason?: string): Promise<void> {
   const state = await loadWorkflowState();
   if (!state) {
     console.error("Error: No active workflow");
@@ -174,6 +224,18 @@ export async function workflowStep(endLoop = false): Promise<void> {
 
     if (state.section >= steps.length) {
       console.log("Workflow complete! All steps have been shown.");
+
+      // Log completion event
+      await logWorkflowEvent({
+        timestamp: Date.now(),
+        event_type: "complete",
+        workflow_file: state.file,
+        step_number: state.section,
+        loop_iteration: null,
+        reason: null,
+        session_id: currentSessionId,
+      });
+
       await deleteWorkflowState();
       Deno.exit(0);
     }
@@ -182,7 +244,7 @@ export async function workflowStep(endLoop = false): Promise<void> {
     const iteration = state.loopIteration || 1;
 
     // Handle --end-loop flag
-    if (endLoop) {
+    if (endLoopReason !== undefined) {
       if (!step.loop) {
         console.error("Error: Current step is not a loop");
         Deno.exit(1);
@@ -195,6 +257,17 @@ export async function workflowStep(endLoop = false): Promise<void> {
         Deno.exit(1);
       }
 
+      // Log end_loop event
+      await logWorkflowEvent({
+        timestamp: Date.now(),
+        event_type: "end_loop",
+        workflow_file: state.file,
+        step_number: state.section + 1,
+        loop_iteration: iteration,
+        reason: endLoopReason,
+        session_id: currentSessionId,
+      });
+
       // End loop and advance, then display next step
       await saveWorkflowState({
         ...state,
@@ -206,13 +279,36 @@ export async function workflowStep(endLoop = false): Promise<void> {
       // Recursively display next step
       const newState = await loadWorkflowState();
       if (newState) {
-        await displayStep(newState);
+        await displayStep(newState, false);
       }
       return;
     }
 
     // Normal step display
-    await displayStep(state);
+    await displayStep(state, false);
+
+    // Log step event (either normal step or loop iteration)
+    if (step.loop) {
+      await logWorkflowEvent({
+        timestamp: Date.now(),
+        event_type: "loop_iteration",
+        workflow_file: state.file,
+        step_number: state.section + 1,
+        loop_iteration: iteration,
+        reason: null,
+        session_id: currentSessionId,
+      });
+    } else {
+      await logWorkflowEvent({
+        timestamp: Date.now(),
+        event_type: "step",
+        workflow_file: state.file,
+        step_number: state.section + 1,
+        loop_iteration: null,
+        reason: null,
+        session_id: currentSessionId,
+      });
+    }
 
     // Handle loop logic for next invocation
     if (step.loop) {
@@ -251,6 +347,17 @@ export async function workflowReset(): Promise<void> {
     Deno.exit(1);
   }
 
+  // Log reset event
+  await logWorkflowEvent({
+    timestamp: Date.now(),
+    event_type: "reset",
+    workflow_file: state.file,
+    step_number: state.section + 1,
+    loop_iteration: state.loopIteration || null,
+    reason: null,
+    session_id: currentSessionId,
+  });
+
   await saveWorkflowState({ ...state, section: 0, loopIteration: undefined });
   console.log(`Workflow reset: ${state.file}`);
   console.log(`Run 'lootbox workflow step' to start from the beginning`);
@@ -276,6 +383,9 @@ export async function workflowStatus(): Promise<void> {
         );
       }
     }
+    if (state.sessionId) {
+      console.log(`Session ID: ${state.sessionId}`);
+    }
   } catch (error) {
     console.error(
       `Error reading workflow file '${state.file}':`,
@@ -283,4 +393,26 @@ export async function workflowStatus(): Promise<void> {
     );
     Deno.exit(1);
   }
+}
+
+export async function workflowAbort(reason: string): Promise<void> {
+  const state = await loadWorkflowState();
+  if (!state) {
+    console.error("Error: No active workflow");
+    Deno.exit(1);
+  }
+
+  // Log abort event
+  await logWorkflowEvent({
+    timestamp: Date.now(),
+    event_type: "abort",
+    workflow_file: state.file,
+    step_number: state.section + 1,
+    loop_iteration: state.loopIteration || null,
+    reason: reason,
+    session_id: currentSessionId,
+  });
+
+  console.log(`Workflow aborted: ${reason}`);
+  await deleteWorkflowState();
 }

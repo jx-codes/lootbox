@@ -27,13 +27,15 @@ import {
   workflowStep,
   workflowReset,
   workflowStatus,
+  workflowAbort,
 } from "./lib/lootbox-cli/workflow.ts";
 import { startServer } from "./lib/lootbox-cli/server.ts";
+import { init } from "./lib/lootbox-cli/init.ts";
 
 async function main() {
   const args = parseArgs(Deno.args, {
-    string: ["eval", "server", "types"],
-    boolean: ["help", "human-help", "llm-help", "version", "namespaces", "config-help", "end-loop"],
+    string: ["eval", "server", "types", "end-loop", "abort"],
+    boolean: ["help", "human-help", "llm-help", "version", "namespaces", "config-help"],
     alias: {
       e: "eval",
       s: "server",
@@ -62,8 +64,14 @@ async function main() {
     Deno.exit(0);
   }
 
-  // Handle server command
+  // Handle init command
   const firstArg = args._[0] as string | undefined;
+  if (firstArg === "init") {
+    await init();
+    return;
+  }
+
+  // Handle server command
   if (firstArg === "server") {
     const serverArgs = args._.slice(1) as string[];
     await startServer(serverArgs);
@@ -85,7 +93,7 @@ async function main() {
         await workflowStart(workflowArgs[0]);
         break;
       case "step":
-        await workflowStep(args["end-loop"] as boolean);
+        await workflowStep(args["end-loop"] as string | undefined);
         break;
       case "reset":
         await workflowReset();
@@ -93,9 +101,17 @@ async function main() {
       case "status":
         await workflowStatus();
         break;
+      case "abort":
+        if (!args.abort) {
+          console.error("Error: --abort requires a reason");
+          console.error('Usage: lootbox workflow abort --abort="reason"');
+          Deno.exit(1);
+        }
+        await workflowAbort(args.abort as string);
+        break;
       default:
         console.error(`Error: Unknown workflow command '${workflowCommand}'`);
-        console.error("Available commands: start, step, reset, status");
+        console.error("Available commands: start, step, reset, status, abort");
         Deno.exit(1);
     }
     return;
