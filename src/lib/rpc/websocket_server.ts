@@ -140,8 +140,8 @@ export class WebSocketRpcServer {
 
     // Phase 7: Start file watcher
     const { get_config } = await import("../get_config.ts");
-    const config = get_config();
-    this.fileWatcherManager.startWatching(config.rpc_dir, async () => {
+    const config = await get_config();
+    this.fileWatcherManager.startWatching(config.tools_dir, async () => {
       await this.rpcCacheManager.refreshCache();
     });
 

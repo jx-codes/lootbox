@@ -12,7 +12,8 @@
  *
  * Configuration:
  *   Reads from lootbox.config.json in current directory if present.
- *   Set "serverUrl" to configure default server.
+ *   Set "port" to configure both client and server (client derives ws://localhost:{port}/ws).
+ *   Set "serverUrl" to override with custom host/protocol (e.g., remote server or wss://).
  *   CLI --server flag overrides config file.
  */
 
@@ -103,9 +104,17 @@ async function main() {
   // Load config file if present (silently ignore if not found)
   const config = await loadConfig();
 
-  // Priority: CLI arg > config file > default
-  const serverUrl =
-    (args.server as string) || config.serverUrl || "ws://localhost:8080/ws";
+  // Priority: CLI arg > config file > derived from port > default
+  let serverUrl: string;
+  if (args.server) {
+    serverUrl = args.server as string;
+  } else if (config.serverUrl) {
+    serverUrl = config.serverUrl;
+  } else if (config.port) {
+    serverUrl = `ws://localhost:${config.port}/ws`;
+  } else {
+    serverUrl = "ws://localhost:8080/ws";
+  }
   const httpUrl = wsUrlToHttpUrl(serverUrl);
 
   // Handle discovery flags

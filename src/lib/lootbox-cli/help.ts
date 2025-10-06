@@ -48,8 +48,8 @@ WORKFLOW EXECUTION:
 SERVER:
   server [OPTIONS]                  Start the WebSocket RPC server
     --port <port>                   Server port (default: 8080)
-    --rpc-dir <path>                RPC functions directory
-    --mcp-config <path>             MCP configuration file
+    --tools-dir <path>              Tools/functions directory
+    --lootbox-data-dir <path>       Data directory (optional)
 `);
 }
 
@@ -108,8 +108,8 @@ Workflow Commands:
 Server Commands:
   server                      Start the WebSocket RPC server
     --port <port>             Server port (default: 8080)
-    --rpc-dir <path>          RPC functions directory (default: ./rpc)
-    --mcp-config <path>       MCP configuration file (optional)
+    --tools-dir <path>        Tools/functions directory (default: ./tools)
+    --lootbox-data-dir <path> Data directory (optional)
 
 Examples:
   # Discover available functions
@@ -134,8 +134,8 @@ Examples:
   lootbox workflow status               # Check progress
 
   # Server mode
-  lootbox server --port 8080 --rpc-dir ./test-rpc
-  lootbox server --port 9000 --rpc-dir ./rpc --mcp-config .mcp.json
+  lootbox server --port 8080 --tools-dir ./tools
+  lootbox server --port 9000 --tools-dir ./tools --lootbox-data-dir ./data
 
   # Workflow file format (YAML):
   # steps:
@@ -153,9 +153,8 @@ Examples:
 export function showConfigHelp() {
   console.log(`lootbox - Configuration
 
-You can create a lootbox.config.json file in your project directory to set
-a default server URL. This is useful when using lootbox with Claude Code or
-other tools where you don't want to specify the server URL every time.
+Create a lootbox.config.json file in your project directory to configure both
+client and server settings. All settings are optional with sensible defaults.
 
 Configuration File:
   File: lootbox.config.json (in current directory)
@@ -163,12 +162,27 @@ Configuration File:
 
 Example:
   {
-    "serverUrl": "ws://localhost:8080/ws"
+    "port": 8080,
+    "toolsDir": "./tools",
+    "lootboxDataDir": "./data",
+    "mcpServers": {
+      "filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/files"]
+      }
+    }
   }
 
-Priority:
-  --server flag > config file > default (ws://localhost:8080/ws)
+Settings:
+  port              Server port (client derives ws://localhost:{port}/ws)
+  serverUrl         Override for custom host/protocol (e.g., wss://remote:8080/ws)
+  toolsDir          Directory containing tool functions (.ts files)
+  lootboxDataDir    Optional data directory path
+  mcpServers        MCP server definitions (command, args, env)
 
-The config file is optional. If not found, the default server URL will be used.
+Priority (for all settings):
+  CLI flags > config file > defaults
+
+The config file is optional. If not found, defaults will be used.
 `);
 }

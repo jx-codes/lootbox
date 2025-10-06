@@ -1,50 +1,73 @@
 import { parseArgs } from "@std/cli";
 import { get_config } from "../get_config.ts";
-import { loadMcpConfig } from "../external-mcps/mcp_config.ts";
 import { WebSocketRpcServer } from "../rpc/websocket_server.ts";
+
+/**
+ * Sanitize server name to be a valid identifier
+ * Replaces hyphens and other invalid characters with underscores
+ */
+function sanitizeServerName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_]/g, "_");
+}
 
 export async function startServer(args: string[]): Promise<void> {
   const parsedArgs = parseArgs(args, {
-    string: ["port", "rpc-dir", "mcp-config"],
+    string: ["port", "tools-dir", "lootbox-data-dir"],
     alias: {
       p: "port",
-      r: "rpc-dir",
-      m: "mcp-config",
+      t: "tools-dir",
+      d: "lootbox-data-dir",
     },
   });
 
   // Override config with CLI args if provided
   const originalArgs = Deno.args;
-  if (parsedArgs.port || parsedArgs["rpc-dir"] || parsedArgs["mcp-config"]) {
+  if (parsedArgs.port || parsedArgs["tools-dir"] || parsedArgs["lootbox-data-dir"]) {
     const customArgs = [];
     if (parsedArgs.port) {
       customArgs.push("--port", String(parsedArgs.port));
     }
-    if (parsedArgs["rpc-dir"]) {
-      customArgs.push("--rpc-dir", parsedArgs["rpc-dir"] as string);
+    if (parsedArgs["tools-dir"]) {
+      customArgs.push("--tools-dir", parsedArgs["tools-dir"] as string);
     }
-    if (parsedArgs["mcp-config"]) {
-      customArgs.push("--mcp-config", parsedArgs["mcp-config"] as string);
+    if (parsedArgs["lootbox-data-dir"]) {
+      customArgs.push("--lootbox-data-dir", parsedArgs["lootbox-data-dir"] as string);
     }
     // Temporarily replace Deno.args for get_config
     Object.defineProperty(Deno, "args", { value: customArgs, writable: true });
   }
 
   try {
-    const config = get_config();
+    const config = await get_config();
 
     console.error(`Starting WebSocket RPC server on port ${config.port}...`);
-    console.error(`Using RPC directory: ${config.rpc_dir}`);
+    console.error(`Using tools directory: ${config.tools_dir}`);
 
-    // Load MCP config if provided
+    // Process MCP servers from config
     let mcpConfig = null;
-    if (config.mcp_config) {
-      console.error(`Loading MCP configuration from: ${config.mcp_config}`);
-      mcpConfig = await loadMcpConfig(config.mcp_config);
-      const serverCount = Object.keys(mcpConfig.mcpServers).length;
+    if (config.mcp_servers && Object.keys(config.mcp_servers).length > 0) {
+      // Sanitize server names and filter out mcp-rpc-bridge
+      const sanitizedServers: Record<string, typeof config.mcp_servers[string]> = {};
+
+      for (const [serverName, serverConfig] of Object.entries(config.mcp_servers)) {
+        // Skip our own mcp-rpc-bridge server
+        if (serverConfig.command === "mcp-rpc-bridge") {
+          console.error(`Skipping mcp-rpc-bridge server: ${serverName}`);
+          continue;
+        }
+
+        const sanitizedName = sanitizeServerName(serverName);
+        if (sanitizedName !== serverName) {
+          console.error(`Sanitized MCP server name: '${serverName}' -> '${sanitizedName}'`);
+        }
+        sanitizedServers[sanitizedName] = serverConfig;
+      }
+
+      mcpConfig = { mcpServers: sanitizedServers };
+      const serverCount = Object.keys(sanitizedServers).length;
       console.error(`Found ${serverCount} MCP server(s) in configuration`);
     } else {
-      console.error("No MCP configuration provided, running without MCP integration");
+      console.error("No MCP servers configured, running without MCP integration");
     }
 
     const server = new WebSocketRpcServer();

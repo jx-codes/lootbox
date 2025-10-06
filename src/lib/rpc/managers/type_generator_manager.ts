@@ -63,7 +63,7 @@ export class TypeGeneratorManager {
     );
     const { get_config } = await import("../../get_config.ts");
 
-    const config = get_config();
+    const config = await get_config();
 
     // Use centralized extraction
     const rpcExtractionResults = await this.extractTypesFromFiles(uniqueFiles);

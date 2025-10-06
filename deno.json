@@ -8,8 +8,8 @@
   },
 
   "tasks": {
-    "start": "MODE=development deno run --allow-all src/lootbox-cli.ts server --rpc-dir ./test-rpc --port 8080",
-    "start:prod": "deno run --allow-all src/lootbox-cli.ts server --rpc-dir ./test-rpc --port 8080",
+    "start": "MODE=development deno run --allow-all src/lootbox-cli.ts server --tools-dir ./tools --port 8080",
+    "start:prod": "deno run --allow-all src/lootbox-cli.ts server --tools-dir ./tools --port 8080",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "compile": "deno task ui:build && deno compile --allow-all --include ui/dist -o lootbox src/lootbox-cli.ts",

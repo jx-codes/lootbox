@@ -4,8 +4,21 @@ export interface ExecResponse {
   id?: string;
 }
 
+export interface McpServerConfig {
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+}
+
 export interface Config {
+  // Client settings
   serverUrl?: string;
+
+  // Server settings
+  port?: number;
+  toolsDir?: string;
+  lootboxDataDir?: string;
+  mcpServers?: Record<string, McpServerConfig>;
 }
 
 export interface FlowState {

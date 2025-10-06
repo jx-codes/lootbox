@@ -8,20 +8,20 @@ export interface RpcFile {
 }
 
 export const discover_rpc_files = async (): Promise<RpcFile[]> => {
-  const config = get_config();
-  const rpcDir = config.rpc_dir;
+  const config = await get_config();
+  const toolsDir = config.tools_dir;
   const files: RpcFile[] = [];
 
   try {
-    const dirInfo = await Deno.stat(rpcDir).catch(() => null);
+    const dirInfo = await Deno.stat(toolsDir).catch(() => null);
     if (!dirInfo?.isDirectory) {
-      console.error(`RPC directory not found: ${rpcDir}`);
+      console.error(`Tools directory not found: ${toolsDir}`);
       return [];
     }
 
-    for await (const entry of Deno.readDir(rpcDir)) {
+    for await (const entry of Deno.readDir(toolsDir)) {
       if (entry.isFile && entry.name.endsWith(".ts")) {
-        const filePath = `${rpcDir}/${entry.name}`;
+        const filePath = `${toolsDir}/${entry.name}`;
         const absolutePath = await Deno.realPath(filePath);
         const name = entry.name.replace(".ts", "");
 

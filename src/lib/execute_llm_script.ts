@@ -8,7 +8,7 @@ export const execute_llm_script = async (args: { script: string; sessionId?: str
 
   // Import client via HTTP URL with version for cache busting only when RPC files change
   const { get_config } = await import("./get_config.ts");
-  const config = get_config();
+  const config = await get_config();
   const client = get_client();
   const clientUrl = `http://localhost:${config.port}/client.ts?v=${client.version}`;
 

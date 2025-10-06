@@ -45,8 +45,8 @@ function getDefaultDataDir(): string {
  */
 async function getHistoryDir(): Promise<string> {
   const { get_config } = await import("./get_config.ts");
-  const config = get_config();
-  const baseDir = config.mcp_rpc_data_dir || getDefaultDataDir();
+  const config = await get_config();
+  const baseDir = config.lootbox_data_dir || getDefaultDataDir();
   return join(baseDir, "script-history");
 }
 

@@ -1,3 +1,5 @@
 {
-  "serverUrl": "ws://localhost:8080/ws"
+  "port": 8080,
+  "toolsDir": "./tools",
+  "lootboxDataDir": "./data"
 }

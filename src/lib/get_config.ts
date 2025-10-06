@@ -1,64 +1,66 @@
 import { parseArgs } from "@std/cli";
+import type { Config, McpServerConfig } from "./lootbox-cli/types.ts";
 
 interface ResolvedConfig {
-  rpc_dir: string;
+  tools_dir: string;
   port: number;
-  mcp_config: string | null;
-  mcp_rpc_data_dir: string | null;
+  lootbox_data_dir: string | null;
+  mcp_servers: Record<string, McpServerConfig> | null;
 }
 
-export const get_config = (): ResolvedConfig => {
+async function loadConfig(): Promise<Config> {
+  try {
+    const configText = await Deno.readTextFile("lootbox.config.json");
+    return JSON.parse(configText);
+  } catch {
+    return {};
+  }
+}
+
+export const get_config = async (): Promise<ResolvedConfig> => {
   const args = parseArgs(Deno.args, {
-    string: ["rpc-dir", "port", "mcp-config", "lootbox-data-dir"],
+    string: ["tools-dir", "port", "lootbox-data-dir"],
     alias: {
-      "rpc-dir": "r",
+      "tools-dir": "t",
       "port": "p",
-      "mcp-config": "m",
       "lootbox-data-dir": "d",
     },
   });
 
-  if (!args["rpc-dir"]) {
-    console.error("Error: --rpc-dir flag is required");
-    console.error("Usage: program --rpc-dir <path> --port <number>");
-    console.error("Example: program --rpc-dir .rpc --port 8080");
+  // Load config file
+  const config = await loadConfig();
+
+  // Priority: flag > config > defaults
+  const toolsDir = (args["tools-dir"] as string) || config.toolsDir;
+  const portStr = (args.port as string) || config.port?.toString();
+  const lootboxDataDir = (args["lootbox-data-dir"] as string) || config.lootboxDataDir || null;
+  const mcpServers = config.mcpServers || null;
+
+  // Validate required fields
+  if (!toolsDir) {
+    console.error("Error: --tools-dir is required (via flag or lootbox.config.json)");
+    console.error("Usage: lootbox server --tools-dir <path> --port <number>");
+    console.error("Or set 'toolsDir' in lootbox.config.json");
     Deno.exit(1);
   }
 
-  if (!args.port) {
-    console.error("Error: --port flag is required");
-    console.error("Usage: program --rpc-dir <path> --port <number>");
-    console.error("Example: program --rpc-dir .rpc --port 8080");
+  if (!portStr) {
+    console.error("Error: --port is required (via flag or lootbox.config.json)");
+    console.error("Usage: lootbox server --tools-dir <path> --port <number>");
+    console.error("Or set 'port' in lootbox.config.json");
     Deno.exit(1);
   }
 
-  const port = parseInt(args.port as string, 10);
+  const port = parseInt(portStr, 10);
   if (isNaN(port)) {
     console.error("Error: --port must be a valid number");
     Deno.exit(1);
   }
 
-  // MCP config is optional
-  let mcpConfigPath: string | null = null;
-  if (args["mcp-config"]) {
-    mcpConfigPath = args["mcp-config"] as string;
-    // Verify file exists if provided
-    try {
-      const stat = Deno.statSync(mcpConfigPath);
-      if (!stat.isFile) {
-        console.error(`Error: --mcp-config path is not a file: ${mcpConfigPath}`);
-        Deno.exit(1);
-      }
-    } catch {
-      console.error(`Error: --mcp-config file not found: ${mcpConfigPath}`);
-      Deno.exit(1);
-    }
-  }
-
   return {
-    rpc_dir: args["rpc-dir"] as string,
+    tools_dir: toolsDir,
     port: port,
-    mcp_config: mcpConfigPath,
-    mcp_rpc_data_dir: args["lootbox-data-dir"] as string | null || null,
+    lootbox_data_dir: lootboxDataDir,
+    mcp_servers: mcpServers,
   };
 };
