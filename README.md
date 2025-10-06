@@ -1,4 +1,13 @@
-# Lootbox
+# This is Open Source because I thought the technique was really cool.
+
+I've been using lootbox daily since I started building it. So far I've used it to automate my knowledge base, build a daily language practice app with Claude as my tutor, an instagram post -> image generator and a lot more.
+
+I hope the community takes this and builds on it, shares their lootbox scripts, or whatever workflows they found work well for them.
+
+If you do end up using lootbox I'd love to hear from you!
+
+
+## Lootbox
 
 > Lootbox looks so cool! Can I have a lootbox?
 >
@@ -7,6 +16,8 @@
 ## What it is
 
 A **local-first** TypeScript WebSocket RPC server that enables LLMs to execute code instead of using traditional tool calling. Runs entirely on your machine with your own functions. This project implements the "Code Mode" approach inspired by Cloudflare's MCP research, where LLMs write TypeScript code to call APIs rather than using direct tool invocation.
+
+
 
 ## Why Code Mode?
 
