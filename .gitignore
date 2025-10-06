@@ -18,8 +18,6 @@ npm/
 storage/
 
 rpc-server
-lootbox-runtime
-lootbox-runtime.exe
 .claude
 script-history/
 lootbox

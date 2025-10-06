@@ -44,6 +44,12 @@ WORKFLOW EXECUTION:
   workflow step                     Execute current workflow step
   workflow step --end-loop          Advance from loop (if min iterations met)
   workflow status                   Check workflow position
+
+SERVER:
+  server [OPTIONS]                  Start the WebSocket RPC server
+    --port <port>                   Server port (default: 8080)
+    --rpc-dir <path>                RPC functions directory
+    --mcp-config <path>             MCP configuration file
 `);
 }
 
@@ -59,6 +65,7 @@ Usage:
   lootbox -e <script>
   cat script.ts | lootbox
   lootbox workflow <command> [args]
+  lootbox server [OPTIONS]
 
 Execution Environment:
   • Runtime: Deno sandbox with TypeScript support
@@ -98,6 +105,12 @@ Workflow Commands:
   workflow reset              Reset workflow to the beginning
   workflow status             Show current workflow status
 
+Server Commands:
+  server                      Start the WebSocket RPC server
+    --port <port>             Server port (default: 8080)
+    --rpc-dir <path>          RPC functions directory (default: ./rpc)
+    --mcp-config <path>       MCP configuration file (optional)
+
 Examples:
   # Discover available functions
   lootbox --namespaces
@@ -119,6 +132,10 @@ Examples:
   lootbox workflow step                 # Show/repeat current step
   lootbox workflow step --end-loop      # End loop early (if min met)
   lootbox workflow status               # Check progress
+
+  # Server mode
+  lootbox server --port 8080 --rpc-dir ./test-rpc
+  lootbox server --port 9000 --rpc-dir ./rpc --mcp-config .mcp.json
 
   # Workflow file format (YAML):
   # steps:

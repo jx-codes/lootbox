@@ -27,6 +27,7 @@ import {
   workflowReset,
   workflowStatus,
 } from "./lib/lootbox-cli/workflow.ts";
+import { startServer } from "./lib/lootbox-cli/server.ts";
 
 async function main() {
   const args = parseArgs(Deno.args, {
@@ -60,8 +61,15 @@ async function main() {
     Deno.exit(0);
   }
 
-  // Handle workflow commands
+  // Handle server command
   const firstArg = args._[0] as string | undefined;
+  if (firstArg === "server") {
+    const serverArgs = args._.slice(1) as string[];
+    await startServer(serverArgs);
+    return;
+  }
+
+  // Handle workflow commands
   if (firstArg === "workflow") {
     const workflowCommand = args._[1] as string | undefined;
     const workflowArgs = args._.slice(2) as string[];

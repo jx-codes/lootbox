@@ -19,9 +19,14 @@ Traditional MCP implementations require LLMs to use special tool-calling tokens 
 
 ## Core Components
 
-### 1. **lootbox-runtime** (WebSocket Server)
+### 1. **lootbox server** (WebSocket Server)
 
 The main RPC server that auto-discovers TypeScript functions, generates type definitions, and executes scripts in isolated sandboxes.
+
+```bash
+# Start the server
+lootbox server --rpc-dir ./my-functions --port 8080
+```
 
 ### 2. **lootbox** (CLI Client)
 
@@ -79,7 +84,7 @@ Install globally using the provided script:
 curl -fsSL https://raw.githubusercontent.com/jx-codes/lootbox/main/install.sh | bash
 ```
 
-This installs both `lootbox-runtime` and `lootbox` CLI to `~/.deno/bin/`.
+This installs the `lootbox` CLI to `~/.deno/bin/`.
 
 ### Option 2: Manual Installation
 
@@ -91,7 +96,7 @@ cd lootbox
 deno task compile
 ```
 
-The compiled binaries `lootbox-runtime` and `lootbox` will be created in the project root.
+The compiled binary `lootbox` will be created in the project root.
 
 ## Quick Start
 
@@ -393,10 +398,7 @@ Priority: `--server` flag > config file > default (`ws://localhost:8080/ws`)
 # Server
 deno task start           # Development mode with UI hot-reload
 deno task start:prod      # Production mode
-deno task compile         # Build standalone lootbox-runtime binary (includes UI)
-
-# CLI tool
-deno task compile-exec    # Build lootbox CLI binary
+deno task compile         # Build standalone lootbox binary (includes server + CLI + UI)
 
 # UI development
 deno task ui:dev          # Start Vite dev server (port 5173)
