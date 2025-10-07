@@ -6,6 +6,8 @@ A **local-first** TypeScript WebSocket RPC server that enables LLMs to execute c
 
 Lootbox implements "Code Mode" - LLMs write TypeScript code to call APIs rather than using tool invocation. This leverages what LLMs are already good at: writing real code with types and IntelliSense.
 
+https://blog.cloudflare.com/code-mode/
+
 ## Why Code Mode?
 
 - **LLMs are better at writing code** than using artificial tool-calling syntax
