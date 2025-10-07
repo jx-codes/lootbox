@@ -166,7 +166,7 @@ export async function functionName(args: ArgsType): Promise<ReturnType> {
 
 // ✅ Correct - no parameters
 export async function getInfo(): Promise<InfoResult> {
-  return { version: "1.0.0" };
+  return { version: "0.0.52" };
 }
 
 // ❌ Wrong - not exported

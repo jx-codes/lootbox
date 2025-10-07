@@ -13,20 +13,20 @@
  * - Provide OpenAPI spec and Swagger UI
  */
 
-import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
-import type { RpcCacheManager } from "./rpc_cache_manager.ts";
-import type { TypeGeneratorManager } from "./type_generator_manager.ts";
-import type { McpIntegrationManager } from "./mcp_integration_manager.ts";
+import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import {
+  ClientCodeResponseSchema,
   HealthResponseSchema,
+  NamespaceTypesParamSchema,
+  NamespaceTypesResponseSchema,
   NamespacesResponseSchema,
   RpcNamespaceMetadataResponseSchema,
   TypesResponseSchema,
-  NamespaceTypesParamSchema,
-  NamespaceTypesResponseSchema,
-  ClientCodeResponseSchema,
 } from "../schemas/openapi_schemas.ts";
+import type { McpIntegrationManager } from "./mcp_integration_manager.ts";
+import type { RpcCacheManager } from "./rpc_cache_manager.ts";
+import type { TypeGeneratorManager } from "./type_generator_manager.ts";
 
 export class OpenApiRouteHandler {
   constructor(
@@ -98,9 +98,8 @@ export class OpenApiRouteHandler {
         const schemas = this.mcpIntegrationManager.isEnabled()
           ? this.mcpIntegrationManager.getSchemas()
           : undefined;
-        const namespaces = await this.typeGeneratorManager.getAvailableNamespaces(
-          schemas
-        );
+        const namespaces =
+          await this.typeGeneratorManager.getAvailableNamespaces(schemas);
         return c.text(namespaces);
       }
     );
@@ -249,7 +248,7 @@ export class OpenApiRouteHandler {
     this.app.doc("/openapi.json", {
       openapi: "3.1.0",
       info: {
-        version: "1.0.0",
+        version: "0.0.52",
         title: "Lootbox API",
         description:
           "REST API for the Lootbox server. Provides TypeScript type definitions, RPC client code generation, namespace discovery, and server health monitoring.",

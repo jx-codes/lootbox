@@ -60,7 +60,7 @@ export class McpClientManager {
       const client = new Client(
         {
           name: "lootbox",
-          version: "1.0.0",
+          version: "0.0.52",
         },
         {
           capabilities: {},
@@ -100,9 +100,7 @@ export class McpClientManager {
   /**
    * Get connection status for a specific server
    */
-  getConnectionStatus(
-    serverName: string
-  ): "connected" | "failed" | "unknown" {
+  getConnectionStatus(serverName: string): "connected" | "failed" | "unknown" {
     return this.connectionStatus.get(serverName) || "unknown";
   }
 

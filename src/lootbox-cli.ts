@@ -18,24 +18,35 @@
  */
 
 import { parseArgs } from "@std/cli";
-import { showHumanHelp, showLlmHelp, showConfigHelp } from "./lib/lootbox-cli/help.ts";
 import { loadConfig } from "./lib/lootbox-cli/config.ts";
-import { wsUrlToHttpUrl } from "./lib/lootbox-cli/utils.ts";
 import { executeScript, getScriptFromArgs } from "./lib/lootbox-cli/exec.ts";
 import {
-  workflowStart,
-  workflowStep,
-  workflowReset,
-  workflowStatus,
-  workflowAbort,
-} from "./lib/lootbox-cli/workflow.ts";
-import { startServer } from "./lib/lootbox-cli/server.ts";
+  showConfigHelp,
+  showHumanHelp,
+  showLlmHelp,
+} from "./lib/lootbox-cli/help.ts";
 import { init } from "./lib/lootbox-cli/init.ts";
+import { startServer } from "./lib/lootbox-cli/server.ts";
+import { wsUrlToHttpUrl } from "./lib/lootbox-cli/utils.ts";
+import {
+  workflowAbort,
+  workflowReset,
+  workflowStart,
+  workflowStatus,
+  workflowStep,
+} from "./lib/lootbox-cli/workflow.ts";
 
 async function main() {
   const args = parseArgs(Deno.args, {
     string: ["eval", "server", "types", "end-loop", "abort"],
-    boolean: ["help", "human-help", "llm-help", "version", "namespaces", "config-help"],
+    boolean: [
+      "help",
+      "human-help",
+      "llm-help",
+      "version",
+      "namespaces",
+      "config-help",
+    ],
     alias: {
       e: "eval",
       s: "server",
@@ -55,7 +66,7 @@ async function main() {
   }
 
   if (args.version) {
-    console.log("lootbox v1.0.0");
+    console.log("lootbox v0.0.52");
     Deno.exit(0);
   }
 
