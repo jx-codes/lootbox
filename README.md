@@ -50,9 +50,9 @@ lootbox init  # Creates .lootbox/ in current directory
 
 The server starts with:
 
-- WebSocket endpoint at `ws://localhost:8080/ws`
-- Web UI at `http://localhost:8080/ui`
-- OpenAPI docs at `http://localhost:8080/doc`
+- WebSocket endpoint at `ws://localhost:3000/ws`
+- Web UI at `http://localhost:3000/ui`
+- OpenAPI docs at `http://localhost:3000/doc`
 
 ### 3. Create Your Tools
 
@@ -92,7 +92,7 @@ Create `lootbox.config.json` in your project:
 
 ```json
 {
-  "port": 8080,
+  "port": 3000,
   "lootboxRoot": ".lootbox",
   "lootboxDataDir": "./data",
   "mcpServers": {
@@ -107,7 +107,7 @@ Create `lootbox.config.json` in your project:
 
 **Options:**
 
-- `port`: Server port (default: 8080)
+- `port`: Server port (default: 3000)
 - `lootboxRoot`: Directory containing tools/ subdirectory (default: `.lootbox`)
 - `lootboxDataDir`: Directory for runtime data (optional)
 - `mcpServers`: External MCP server configurations (optional)
