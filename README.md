@@ -94,7 +94,7 @@ Lootbox automatically creates built-in tools in `~/.lootbox/tools/` on first run
 - **`fs.ts`**: Filesystem operations (read, write, list, delete files)
 - **`kv.ts`**: Key-value store using JSON file storage
 - **`sqlite.ts`**: SQLite database operations
-- **`memory.ts`**: In-memory storage with TTL and persistence
+- **`memory.ts`**: Graph-ish knowledge base
 
 **Tool Loading Priority:**
 1. Global tools from `~/.lootbox/tools/` (available everywhere)
