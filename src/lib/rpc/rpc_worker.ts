@@ -25,8 +25,6 @@ async function main() {
     Deno.exit(1);
   }
 
-  console.error(`[Worker ${namespace}] Starting worker for ${rpcFilePath}`);
-
   // Import all functions from RPC file
   const functions = await import(rpcFilePath);
 
@@ -34,8 +32,6 @@ async function main() {
   const ws = new WebSocket(workerWsUrl);
 
   ws.onopen = () => {
-    console.error(`[Worker ${namespace}] Connected to main server`);
-
     // Identify ourselves
     ws.send(JSON.stringify({
       type: "identify",

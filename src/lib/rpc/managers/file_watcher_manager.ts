@@ -29,7 +29,6 @@ export class FileWatcherManager {
     try {
       this.watcher = Deno.watchFs(directory);
       this.watching = true;
-      console.error(`Watching RPC directory: ${directory}`);
 
       // Start watching in background
       (async () => {
@@ -37,10 +36,6 @@ export class FileWatcherManager {
           for await (const event of this.watcher!) {
             // Only react to TypeScript file changes
             if (event.paths.some((path) => path.endsWith(".ts"))) {
-              console.error(
-                `File system event: ${event.kind} - ${event.paths.join(", ")}`
-              );
-
               // Debounce rapid file changes
               await new Promise((resolve) => setTimeout(resolve, 100));
               await onChange();
@@ -72,8 +67,6 @@ export class FileWatcherManager {
     // Note: Deno.FsWatcher doesn't have a direct close method,
     // but setting watcher to null will allow garbage collection
     this.watcher = null;
-
-    console.error("File watcher stopped");
   }
 
   /**

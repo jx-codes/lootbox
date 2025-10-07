@@ -13,6 +13,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Hono } from "@hono/hono";
 import { upgradeWebSocket } from "@hono/hono/deno";
+import type { Spinner } from "@std/cli/unstable-spinner";
 import { get_client, set_client } from "../client_cache.ts";
 import type { McpConfigFile } from "../external-mcps/mcp_config.ts";
 import { WorkerManager } from "./worker_manager.ts";
@@ -24,6 +25,7 @@ import { MessageRouter } from "./managers/message_router.ts";
 import { ConnectionManager } from "./managers/connection_manager.ts";
 import { OpenApiRouteHandler } from "./managers/openapi_route_handler.ts";
 import { setupUIRoutes } from "../ui_server.ts";
+import { showBootup } from "../lootbox-cli/bootup.ts";
 
 export class WebSocketRpcServer {
   private app = new OpenAPIHono();
@@ -98,20 +100,18 @@ export class WebSocketRpcServer {
   /**
    * Start the RPC server
    */
-  async start(port: number, mcpConfig: McpConfigFile | null): Promise<void> {
+  async start(port: number, mcpConfig: McpConfigFile | null, spinner?: Spinner): Promise<void> {
     this.currentPort = port;
 
-    // Phase 1: Initial RPC cache load
-    console.error("Loading RPC files...");
-    await this.rpcCacheManager.refreshCache();
+    // Get config early
+    const { get_config } = await import("../get_config.ts");
+    const config = await get_config();
 
-    // Phase 2: Initialize MCP if config provided
-    if (mcpConfig) {
-      await this.mcpIntegrationManager.initialize(mcpConfig);
-      console.error(
-        `Connected MCP servers: ${this.mcpIntegrationManager.getConnectedServers().join(", ")}`
-      );
-    }
+    // Phase 1 & 2: Load RPC cache and initialize MCP in parallel
+    await Promise.all([
+      this.rpcCacheManager.refreshCache(),
+      mcpConfig ? this.mcpIntegrationManager.initialize(mcpConfig) : Promise.resolve(),
+    ]);
 
     // Phase 2.5: Generate initial client code
     const schemas = this.mcpIntegrationManager.isEnabled()
@@ -122,13 +122,11 @@ export class WebSocketRpcServer {
       schemas
     );
     set_client(clientCode);
-    console.error("Generated initial client code");
 
     // Phase 3: Wire managers together
     this.wireManagers();
 
-    // Phase 4: Setup message routing (depends on worker manager, but we'll initialize it later)
-    // We'll create a lazy wrapper for now
+    // Phase 4: Setup message routing
     this.workerManager = new WorkerManager(port);
     this.messageRouter = new MessageRouter(
       this.workerManager,
@@ -139,18 +137,12 @@ export class WebSocketRpcServer {
     this.setupRoutes();
 
     // Phase 7: Start file watcher
-    const { get_config } = await import("../get_config.ts");
-    const config = await get_config();
     this.fileWatcherManager.startWatching(config.tools_dir, async () => {
       await this.rpcCacheManager.refreshCache();
     });
 
     // Phase 8: Start HTTP server
-    console.error(`Starting RPC server on port ${port}`);
-    console.error(
-      `Available RPC functions: ${this.rpcCacheManager.getFunctionNames().join(", ")}`
-    );
-    Deno.serve({ port }, this.app.fetch);
+    Deno.serve({ port, onListen: () => {} }, this.app.fetch);
 
     // Give server time to start
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -165,7 +157,15 @@ export class WebSocketRpcServer {
 
     // Wait for workers to be ready
     await this.workerManager.waitForReady(5000);
-    console.error(`[Server] All workers initialized`);
+
+    // Show bootup display
+    showBootup({
+      port,
+      toolsDir: config.tools_dir,
+      mcpServers: this.mcpIntegrationManager.getConnectedServers(),
+      rpcFunctions: this.rpcCacheManager.getFunctionNames(),
+      spinner,
+    });
   }
 
   /**

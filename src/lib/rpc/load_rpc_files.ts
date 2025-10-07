@@ -8,7 +8,9 @@ export interface RpcFile {
   path: string;
 }
 
-async function discoverToolsInDir(toolsDir: string): Promise<Map<string, string>> {
+async function discoverToolsInDir(
+  toolsDir: string
+): Promise<Map<string, string>> {
   const tools = new Map<string, string>();
 
   try {
@@ -39,21 +41,20 @@ export const discover_rpc_files = async (): Promise<RpcFile[]> => {
 
   // Load from global tools directory (~/.lootbox/tools)
   const globalTools = await discoverToolsInDir(globalToolsDir);
-  console.error(`Found ${globalTools.size} global tools in ${globalToolsDir}`);
 
   // Load from project tools directory (.lootbox/tools)
   const projectTools = await discoverToolsInDir(projectToolsDir);
-  console.error(`Found ${projectTools.size} project tools in ${projectToolsDir}`);
 
   // Merge: project tools override global tools with same name
   const mergedTools = new Map([...globalTools, ...projectTools]);
 
-  const files: RpcFile[] = Array.from(mergedTools.entries()).map(([name, path]) => ({
-    name,
-    path,
-  }));
+  const files: RpcFile[] = Array.from(mergedTools.entries()).map(
+    ([name, path]) => ({
+      name,
+      path,
+    })
+  );
 
-  console.error(`Total ${files.length} RPC files loaded`);
   return files;
 };
 
@@ -65,14 +66,15 @@ export const generate_types = async (): Promise<string> => {
   }
 
   const { TypeExtractor } = await import("../type_system/type_extractor.ts");
-  const { ClientGenerator } = await import("../type_system/client_generator.ts");
+  const { ClientGenerator } = await import(
+    "../type_system/client_generator.ts"
+  );
 
   const extractor = new TypeExtractor();
   const generator = new ClientGenerator();
   const extractionResults = [];
 
   for (const file of files) {
-    console.error(`Extracting types from: ${file.name}`);
     const result = extractor.extractFromFile(file.path);
     extractionResults.push(result);
   }

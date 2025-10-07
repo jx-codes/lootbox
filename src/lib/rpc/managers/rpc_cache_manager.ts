@@ -41,13 +41,13 @@ export class RpcCacheManager {
             const namespacedMethod = `${file.name}.${func.name}`;
             this.rpcFiles.set(namespacedMethod, file);
           }
-        } catch (err) {
-          console.error(`Error discovering functions in ${file.name}:`, err);
+        } catch {
+          // Ignore individual file errors
+          continue;
         }
       }
 
       const functionNames = Array.from(this.rpcFiles.keys());
-      console.error(`RPC functions updated: ${functionNames.join(", ")}`);
 
       // Notify all subscribers
       for (const callback of this.refreshCallbacks) {

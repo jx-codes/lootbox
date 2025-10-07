@@ -99,7 +99,6 @@ export class ConnectionManager {
 
     return {
       onOpen: (_event, _ws) => {
-        console.error("Worker WebSocket connected");
         // We'll set the workerId when we get the identify message
       },
 
@@ -131,7 +130,6 @@ export class ConnectionManager {
       },
 
       onClose: () => {
-        console.error("Worker WebSocket disconnected");
         if (workerId) {
           workerManager.handleDisconnect(workerId);
         }

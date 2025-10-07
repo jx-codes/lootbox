@@ -14,8 +14,6 @@ export function setupUIRoutes(app: OpenAPIHono) {
   const vitePort = Deno.env.get("VITE_PORT") || "5173";
 
   if (isDev) {
-    console.error(`[UI] Development mode: Proxying to Vite dev server on http://localhost:${vitePort}`);
-
     // Root UI route (must come before /ui/*)
     app.get("/ui", async (c) => {
       try {
@@ -59,8 +57,6 @@ export function setupUIRoutes(app: OpenAPIHono) {
       }
     });
   } else {
-    console.error("[UI] Production mode: Serving static files from ui/dist");
-
     // Cast to Hono for static file serving (OpenAPIHono has strict typing)
     const honoApp = app as unknown as Hono;
 

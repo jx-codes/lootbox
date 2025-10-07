@@ -7,7 +7,7 @@ interface WorkerState {
   sendMessage?: (message: string) => void; // Callback to send messages to worker
   workerId: string;
   filePath: string;
-  status: "starting" | "ready" | "crashed";
+  status: "starting" | "ready" | "crashed" | "failed";
   pendingCalls: Map<
     string,
     {
@@ -18,6 +18,7 @@ interface WorkerState {
   >;
   restartCount: number;
   lastRestart: number;
+  everReady: boolean; // Track if worker ever successfully started
 }
 
 interface IdentifyMessage {
@@ -68,8 +69,6 @@ export class WorkerManager {
   async startWorker(file: RpcFile): Promise<void> {
     const workerId = file.name;
 
-    console.error(`[WorkerManager] Starting worker for ${workerId}`);
-
     // Spawn worker process
     const workerWsUrl = `ws://localhost:${this.port}/worker-ws`;
     const command = new Deno.Command("deno", {
@@ -96,6 +95,7 @@ export class WorkerManager {
       pendingCalls: new Map(),
       restartCount: 0,
       lastRestart: Date.now(),
+      everReady: false,
     };
 
     this.workers.set(workerId, worker);
@@ -121,7 +121,6 @@ export class WorkerManager {
     const worker = this.workers.get(workerId);
     if (worker) {
       worker.sendMessage = sendMessage;
-      console.error(`[WorkerManager] Registered sender for worker ${workerId}`);
     }
   }
 
@@ -143,14 +142,13 @@ export class WorkerManager {
           return;
         }
 
-        console.error(`[WorkerManager] Worker ${workerId} identified`);
       } else if (msg.type === "ready") {
         const workerId = msg.workerId;
         const worker = this.workers.get(workerId);
 
         if (worker) {
           worker.status = "ready";
-          console.error(`[WorkerManager] Worker ${workerId} ready`);
+          worker.everReady = true;
         }
       } else if (msg.type === "result") {
         // Find worker by searching for the pending call
@@ -190,7 +188,6 @@ export class WorkerManager {
   handleDisconnect(workerId: string): void {
     const worker = this.workers.get(workerId);
     if (worker) {
-      console.error(`[WorkerManager] Worker ${workerId} disconnected`);
       worker.sendMessage = undefined;
     }
   }
@@ -207,6 +204,12 @@ export class WorkerManager {
 
     if (!worker) {
       throw new Error(`Worker for namespace '${namespace}' not found`);
+    }
+
+    if (worker.status === "failed") {
+      throw new Error(
+        `Worker for namespace '${namespace}' failed to start. Check the tool file for errors.`
+      );
     }
 
     if (worker.status !== "ready") {
@@ -261,8 +264,6 @@ export class WorkerManager {
     const worker = this.workers.get(workerId);
     if (!worker) return;
 
-    worker.status = "crashed";
-
     // Reject all pending calls
     for (const [callId, pending] of worker.pendingCalls) {
       clearTimeout(pending.timeoutId);
@@ -270,7 +271,17 @@ export class WorkerManager {
     }
     worker.pendingCalls.clear();
 
-    // Calculate backoff
+    // If worker never successfully started, mark as permanently failed
+    if (!worker.everReady) {
+      worker.status = "failed";
+      console.error(
+        `[WorkerManager] Worker ${workerId} failed to start - not retrying. Check the tool file for errors.`
+      );
+      return;
+    }
+
+    // Worker was previously healthy, attempt restart with backoff
+    worker.status = "crashed";
     const backoffMs = Math.min(1000 * Math.pow(2, worker.restartCount), 30000);
     worker.restartCount++;
 
@@ -280,7 +291,6 @@ export class WorkerManager {
 
     // Schedule restart
     setTimeout(() => {
-      console.error(`[WorkerManager] Restarting worker ${workerId}`);
       const file: RpcFile = {
         name: workerId,
         path: worker.filePath,
@@ -333,12 +343,18 @@ export class WorkerManager {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeoutMs) {
-      const allReady = Array.from(this.workers.values()).every(
-        (w) => w.status === "ready"
+      const allSettled = Array.from(this.workers.values()).every(
+        (w) => w.status === "ready" || w.status === "failed"
       );
 
-      if (allReady) {
-        console.error(`[WorkerManager] All workers ready`);
+      if (allSettled) {
+        const ready = Array.from(this.workers.values()).filter(
+          (w) => w.status === "ready"
+        );
+        const failed = Array.from(this.workers.values()).filter(
+          (w) => w.status === "failed"
+        );
+
         return;
       }
 
@@ -346,7 +362,7 @@ export class WorkerManager {
     }
 
     const notReady = Array.from(this.workers.values()).filter(
-      (w) => w.status !== "ready"
+      (w) => w.status !== "ready" && w.status !== "failed"
     );
 
     console.error(
@@ -360,8 +376,6 @@ export class WorkerManager {
    * Stop all workers
    */
   async stopAllWorkers(): Promise<void> {
-    console.error(`[WorkerManager] Stopping all workers`);
-
     for (const worker of this.workers.values()) {
       if (worker.sendMessage) {
         try {
