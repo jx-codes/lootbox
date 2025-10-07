@@ -31,7 +31,7 @@ export class WebSocketClient {
   private callIdCounter = 0;
   private availableFunctions: string[] = [];
 
-  constructor(url: string = `ws://${window.location.hostname}:8080/ws`) {
+  constructor(url: string = `ws://${window.location.hostname}:3000/ws`) {
     this.url = url;
   }
 

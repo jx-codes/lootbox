@@ -33,7 +33,7 @@ export async function init(): Promise<void> {
 
   // Create config file with defaults
   const defaultConfig = {
-    port: 8080,
+    port: 3000,
     lootboxRoot: ".lootbox",
   };
 

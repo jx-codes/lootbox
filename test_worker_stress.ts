@@ -12,7 +12,7 @@ async function stressTest() {
   console.log("  • Error handling and recovery");
   console.log("  • Performance under load\n");
 
-  const ws = new WebSocket("ws://localhost:8080/ws");
+  const ws = new WebSocket("ws://localhost:3000/ws");
 
   await new Promise((resolve, reject) => {
     ws.onopen = () => {

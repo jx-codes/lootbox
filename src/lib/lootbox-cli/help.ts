@@ -86,7 +86,7 @@ Options:
   -e, --eval <script>         Execute inline script
                               Note: For complex scripts with special characters, save to a
                               file and pipe it instead: cat script.ts | lootbox
-  -s, --server <url>          WebSocket server URL (default: ws://localhost:8080/ws)
+  -s, --server <url>          WebSocket server URL (default: ws://localhost:3000/ws)
   --namespaces                List all namespaces available in tools object
   --types <ns1,ns2,...>       Show TypeScript types for specific namespaces
   --config-help               Show configuration file information
@@ -103,7 +103,7 @@ Workflow Commands:
 
 Server Commands:
   server                      Start the WebSocket RPC server
-    --port <port>             Server port (default: 8080)
+    --port <port>             Server port (default: 3000)
     --lootbox-root <path>     Lootbox root directory (default: .lootbox)
     --lootbox-data-dir <path> Data directory (optional, defaults to ~/.local/share/lootbox)
 
@@ -131,7 +131,7 @@ Examples:
   lootbox workflow status                                 # Check progress
 
   # Server mode
-  lootbox server                        # Uses defaults (port 8080, ./lootbox/tools)
+  lootbox server                        # Uses defaults (port 3000, ./lootbox/tools)
   lootbox server --port 9000            # Custom port
 
   # Workflow file format (YAML):
@@ -159,7 +159,7 @@ Configuration File:
 
 Example:
   {
-    "port": 8080,
+    "port": 3000,
     "lootboxRoot": ".lootbox",
     "mcpServers": {
       "filesystem": {
@@ -170,8 +170,8 @@ Example:
   }
 
 Settings:
-  port              Server port (default: 8080, client derives ws://localhost:{port}/ws)
-  serverUrl         Override for custom host/protocol (e.g., wss://remote:8080/ws)
+  port              Server port (default: 3000, client derives ws://localhost:{port}/ws)
+  serverUrl         Override for custom host/protocol (e.g., wss://remote:3000/ws)
   lootboxRoot       Root directory for lootbox files (default: .lootbox)
                     Contains: tools/, workflows/, scripts/
   lootboxDataDir    Internal data directory (default: ~/.local/share/lootbox)

@@ -140,7 +140,7 @@ async function main() {
   } else if (config.port) {
     serverUrl = `ws://localhost:${config.port}/ws`;
   } else {
-    serverUrl = "ws://localhost:8080/ws";
+    serverUrl = "ws://localhost:3000/ws";
   }
   const httpUrl = wsUrlToHttpUrl(serverUrl);
 

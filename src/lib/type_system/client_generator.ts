@@ -21,7 +21,7 @@ export class ClientGenerator {
   private defaultOptions: ClientGeneratorOptions = {
     includeInterfaces: true,
     clientClassName: "RpcClient",
-    websocketUrl: "ws://localhost:8080/ws",
+    websocketUrl: "ws://localhost:3000/ws",
     timeout: 10000,
   };
 
@@ -716,12 +716,12 @@ export interface RpcResponse {
     // Build unified namespace list with function counts
     const rpcNamespaces = Object.entries(rpcGrouped).map(([name, results]) => ({
       name,
-      functionCount: results.reduce((sum, r) => sum + r.functions.length, 0)
+      functionCount: results.reduce((sum, r) => sum + r.functions.length, 0),
     }));
 
     const mcpNamespaces = Object.entries(mcpGrouped).map(([name, results]) => ({
       name: `mcp_${name}`,
-      functionCount: results.reduce((sum, r) => sum + r.functions.length, 0)
+      functionCount: results.reduce((sum, r) => sum + r.functions.length, 0),
     }));
 
     return [...rpcNamespaces, ...mcpNamespaces];

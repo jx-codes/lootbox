@@ -6,9 +6,11 @@
 async function testPromiseAll() {
   console.log("🧪 Testing Promise.all() with Parallel RPC Calls\n");
   console.log("This test validates the race condition fix where multiple");
-  console.log("concurrent calls would create multiple WebSocket connections.\n");
+  console.log(
+    "concurrent calls would create multiple WebSocket connections.\n"
+  );
 
-  const ws = new WebSocket("ws://localhost:8080/ws");
+  const ws = new WebSocket("ws://localhost:3000/ws");
 
   await new Promise((resolve, reject) => {
     ws.onopen = () => {
@@ -92,7 +94,9 @@ async function testPromiseAll() {
   if (parTime < seqTime) {
     console.log(`✅ Test 4 PASSED - Parallel is faster\n`);
   } else {
-    console.log(`⚠️  Test 4 WARNING - Parallel should be faster than sequential\n`);
+    console.log(
+      `⚠️  Test 4 WARNING - Parallel should be faster than sequential\n`
+    );
   }
 
   // Test 5: Mixed parallel and sequential patterns
@@ -145,17 +149,24 @@ async function testPromiseAll() {
   console.log("\n💡 The race condition has been successfully fixed!");
 }
 
-async function callRpc(ws: WebSocket, method: string, args: unknown): Promise<any> {
+async function callRpc(
+  ws: WebSocket,
+  method: string,
+  args: unknown
+): Promise<any> {
   const id = `test_${Date.now()}_${Math.random()}`;
 
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`Timeout: ${method}`)), 10000);
+    const timeout = setTimeout(
+      () => reject(new Error(`Timeout: ${method}`)),
+      10000
+    );
 
     const handler = (event: MessageEvent) => {
       try {
         const response = JSON.parse(event.data);
         if (response.id === id) {
-          ws.removeEventListener('message', handler);
+          ws.removeEventListener("message", handler);
           clearTimeout(timeout);
 
           if (response.error) {
@@ -169,7 +180,7 @@ async function callRpc(ws: WebSocket, method: string, args: unknown): Promise<an
       }
     };
 
-    ws.addEventListener('message', handler);
+    ws.addEventListener("message", handler);
     ws.send(JSON.stringify({ method, args, id }));
   });
 }

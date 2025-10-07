@@ -3,7 +3,7 @@ export function generateId(): string {
 }
 
 export function wsUrlToHttpUrl(wsUrl: string): string {
-  // Convert ws://localhost:8080/ws -> http://localhost:8080
+  // Convert ws://localhost:3000/ws -> http://localhost:3000
   return wsUrl
     .replace(/^ws:/, "http:")
     .replace(/^wss:/, "https:")

@@ -22,7 +22,7 @@ export class RpcClient {
 
   constructor(config: RpcClientConfig = {}) {
     this.config = {
-      url: config.url || "ws://localhost:8080/ws",
+      url: config.url || "ws://localhost:3000/ws",
       timeout: config.timeout || 30000,
       autoReconnect: config.autoReconnect ?? true,
     };
@@ -44,7 +44,8 @@ export class RpcClient {
       this.ws = new WebSocket(this.config.url);
 
       this.ws.onopen = () => resolve();
-      this.ws.onerror = (error) => reject(new Error(`WebSocket error: ${error}`));
+      this.ws.onerror = (error) =>
+        reject(new Error(`WebSocket error: ${error}`));
 
       this.ws.onmessage = (event) => {
         try {
@@ -103,7 +104,7 @@ export class RpcClient {
           method,
           args,
           id,
-        }),
+        })
       );
     });
   }
@@ -125,7 +126,7 @@ export class RpcClient {
 
 // Type-safe proxy client generator
 export function createTypedRpcClient<
-  T extends Record<string, (...args: any[]) => Promise<any>>,
+  T extends Record<string, (...args: any[]) => Promise<any>>
 >(config?: RpcClientConfig): T {
   const client = new RpcClient(config);
 

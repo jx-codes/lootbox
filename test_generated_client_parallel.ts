@@ -6,7 +6,7 @@
 async function testGeneratedClientParallel() {
   console.log("🧪 Testing Generated Client with Promise.all()\n");
 
-  const ws = new WebSocket("ws://localhost:8080/ws");
+  const ws = new WebSocket("ws://localhost:3000/ws");
 
   await new Promise((resolve, reject) => {
     ws.onopen = () => {
@@ -47,13 +47,16 @@ console.log("✅ Generated client handles Promise.all() correctly!");
   const callId = `script_${Date.now()}`;
 
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("Script timeout")), 15000);
+    const timeout = setTimeout(
+      () => reject(new Error("Script timeout")),
+      15000
+    );
 
     const handler = (event: MessageEvent) => {
       try {
         const response = JSON.parse(event.data);
         if (response.id === callId) {
-          ws.removeEventListener('message', handler);
+          ws.removeEventListener("message", handler);
           clearTimeout(timeout);
 
           console.log("\n📥 Script execution response received\n");
@@ -75,7 +78,7 @@ console.log("✅ Generated client handles Promise.all() correctly!");
       }
     };
 
-    ws.addEventListener('message', handler);
+    ws.addEventListener("message", handler);
     ws.send(JSON.stringify({ script: llmScript, id: callId }));
   });
 }

@@ -5,9 +5,12 @@
 async function testFileDb() {
   console.log("📁 Testing File-Based Database RPC\n");
 
-  const ws = new WebSocket("ws://localhost:8080/ws");
+  const ws = new WebSocket("ws://localhost:3000/ws");
   await new Promise((resolve, reject) => {
-    ws.onopen = () => { console.log("✅ Connected\n"); resolve(void 0); };
+    ws.onopen = () => {
+      console.log("✅ Connected\n");
+      resolve(void 0);
+    };
     ws.onerror = () => reject(new Error("Connection failed"));
   });
 
@@ -45,7 +48,9 @@ async function testFileDb() {
     console.log("─".repeat(60));
     const all = await rpc(ws, "filedb.query", { tableName: "users" });
     console.log(`Found ${all.count} records:`);
-    all.records.forEach((r: any) => console.log(`  ${r.id}: ${r.name} (${r.email})`));
+    all.records.forEach((r: any) =>
+      console.log(`  ${r.id}: ${r.name} (${r.email})`)
+    );
     console.log("✅ Test 3 PASSED\n");
 
     // Test 4: Parallel queries with Promise.all()
@@ -55,14 +60,19 @@ async function testFileDb() {
 
     const [allUsers, alice, youngUsers] = await Promise.all([
       rpc(ws, "filedb.query", { tableName: "users" }),
-      rpc(ws, "filedb.query", { tableName: "users", filter: { name: "Alice" } }),
+      rpc(ws, "filedb.query", {
+        tableName: "users",
+        filter: { name: "Alice" },
+      }),
       rpc(ws, "filedb.query", { tableName: "users", filter: { age: 25 } }),
     ]);
 
     const time = performance.now() - start;
 
     console.log(`All users: ${allUsers.count}`);
-    console.log(`Alice: ${alice.records[0]?.name} - ${alice.records[0]?.email}`);
+    console.log(
+      `Alice: ${alice.records[0]?.name} - ${alice.records[0]?.email}`
+    );
     console.log(`Young users (age 25): ${youngUsers.count}`);
     console.log(`⏱️  ${time.toFixed(2)}ms`);
     console.log("✅ Test 4 PASSED - Promise.all() works!\n");
@@ -77,7 +87,9 @@ async function testFileDb() {
       rpc(ws, "filedb.createTable", { tableName: "orders" }),
       rpc(ws, "filedb.insert", {
         tableName: "users",
-        records: [{ id: 4, name: "David", email: "david@example.com", age: 28 }],
+        records: [
+          { id: 4, name: "David", email: "david@example.com", age: 28 },
+        ],
       }),
     ]);
 
@@ -91,9 +103,7 @@ async function testFileDb() {
       }),
       rpc(ws, "filedb.insert", {
         tableName: "orders",
-        records: [
-          { id: 1, userId: 1, productId: 1, quantity: 1 },
-        ],
+        records: [{ id: 1, userId: 1, productId: 1, quantity: 1 }],
       }),
     ]);
 
@@ -152,7 +162,10 @@ async function testFileDb() {
       rpc(ws, "filedb.query", { tableName: "products", limit: 1 }),
       rpc(ws, "filedb.listTables", {}),
       rpc(ws, "filedb.query", { tableName: "users", filter: { age: 31 } }),
-      rpc(ws, "filedb.query", { tableName: "products", filter: { price: 999 } }),
+      rpc(ws, "filedb.query", {
+        tableName: "products",
+        filter: { price: 999 },
+      }),
       rpc(ws, "filedb.query", { tableName: "users" }),
       rpc(ws, "filedb.query", { tableName: "orders" }),
     ]);
@@ -190,14 +203,19 @@ async function testFileDb() {
 async function rpc(ws: WebSocket, method: string, args: unknown): Promise<any> {
   const id = `test_${Date.now()}_${Math.random()}`;
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error(`Timeout: ${method}`)), 30000);
+    const timeout = setTimeout(
+      () => reject(new Error(`Timeout: ${method}`)),
+      30000
+    );
     const handler = (event: MessageEvent) => {
       try {
         const response = JSON.parse(event.data);
         if (response.id === id) {
           ws.removeEventListener("message", handler);
           clearTimeout(timeout);
-          response.error ? reject(new Error(response.error)) : resolve(response.result);
+          response.error
+            ? reject(new Error(response.error))
+            : resolve(response.result);
         }
       } catch (e) {}
     };
