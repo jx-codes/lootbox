@@ -1140,6 +1140,7 @@
     "https://esm.sh/source-map@^0.6.1?target=denonext": "https://esm.sh/source-map@0.6.1?target=denonext"
   },
   "remote": {
+    "http://localhost:8080/client.ts": "8a876a4241a7cd8f9e0865840ac4ca3f4e496174f44110058136605b7fd87c43",
     "https://deno.land/std@0.106.0/encoding/base64.ts": "eecae390f1f1d1cae6f6c6d732ede5276bf4b9cd29b1d281678c054dc5cc009e",
     "https://deno.land/std@0.110.0/_util/assert.ts": "2f868145a042a11d5ad0a3c748dcf580add8a0dbc0e876eaa0026303a5488f58",
     "https://deno.land/std@0.110.0/_util/os.ts": "dfb186cc4e968c770ab6cc3288bd65f4871be03b93beecae57d657232ecffcac",

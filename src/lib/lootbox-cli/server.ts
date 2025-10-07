@@ -1,6 +1,7 @@
 import { parseArgs } from "@std/cli";
 import { get_config } from "../get_config.ts";
 import { WebSocketRpcServer } from "../rpc/websocket_server.ts";
+import { ensureBuiltinTools } from "../paths.ts";
 
 /**
  * Sanitize server name to be a valid identifier
@@ -38,6 +39,9 @@ export async function startServer(args: string[]): Promise<void> {
   }
 
   try {
+    // Ensure built-in tools exist in ~/.lootbox/tools
+    await ensureBuiltinTools();
+
     const config = await get_config();
 
     console.error(`Starting WebSocket RPC server on port ${config.port}...`);
