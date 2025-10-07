@@ -39,10 +39,8 @@ deno task compile
 ### 1. Start Server
 
 ```bash
-lootbox server  # Auto-creates ~/.lootbox/tools with built-in tools
+lootbox server
 ```
-
-On first run, lootbox automatically creates `~/.lootbox/tools/` with built-in tools (fs, kv, sqlite, memory).
 
 ### 2. Initialize Project (Optional)
 
@@ -51,6 +49,7 @@ lootbox init  # Creates .lootbox/ in current directory
 ```
 
 The server starts with:
+
 - WebSocket endpoint at `ws://localhost:8080/ws`
 - Web UI at `http://localhost:8080/ui`
 - OpenAPI docs at `http://localhost:8080/doc`
@@ -87,21 +86,6 @@ lootbox --namespaces
 lootbox --types myapi,kv,sqlite
 ```
 
-## Built-in Tools
-
-Lootbox automatically creates built-in tools in `~/.lootbox/tools/` on first run:
-
-- **`fs.ts`**: Filesystem operations (read, write, list, delete files)
-- **`kv.ts`**: Key-value store using JSON file storage
-- **`sqlite.ts`**: SQLite database operations
-- **`memory.ts`**: Graph-ish knowledge base
-
-**Tool Loading Priority:**
-1. Global tools from `~/.lootbox/tools/` (available everywhere)
-2. Project tools from `.lootbox/tools/` (override global if same filename)
-
-This means you can customize any built-in tool by creating a file with the same name in your project's `.lootbox/tools/`.
-
 ## Configuration
 
 Create `lootbox.config.json` in your project:
@@ -122,12 +106,14 @@ Create `lootbox.config.json` in your project:
 ```
 
 **Options:**
+
 - `port`: Server port (default: 8080)
 - `lootboxRoot`: Directory containing tools/ subdirectory (default: `.lootbox`)
 - `lootboxDataDir`: Directory for runtime data (optional)
 - `mcpServers`: External MCP server configurations (optional)
 
 **CLI Flags:**
+
 ```bash
 lootbox server --port 3000                           # Custom port
 lootbox server --lootbox-root ./my-tools             # Custom tools directory
@@ -191,22 +177,23 @@ export function wrongSignature(x: number, y: string) {}
 ```
 
 **Requirements:**
+
 - Must be exported
 - Must have 0 or 1 parameter (if 1, it should be an object)
 - Multiple parameters are not supported
 
 ## HTTP API Endpoints
 
-| Endpoint             | Description                         |
-| -------------------- | ----------------------------------- |
-| `/health`            | Server health check                 |
-| `/namespaces`        | List available tools & MCP servers  |
-| `/types`             | All TypeScript type definitions     |
-| `/types/:namespaces` | Types for specific namespaces       |
-| `/client.ts`         | Generated TypeScript client         |
-| `/ui`                | Status dashboard                    |
-| `/doc`               | OpenAPI/Swagger documentation       |
-| `/ws`                | WebSocket endpoint                  |
+| Endpoint             | Description                        |
+| -------------------- | ---------------------------------- |
+| `/health`            | Server health check                |
+| `/namespaces`        | List available tools & MCP servers |
+| `/types`             | All TypeScript type definitions    |
+| `/types/:namespaces` | Types for specific namespaces      |
+| `/client.ts`         | Generated TypeScript client        |
+| `/ui`                | Status dashboard                   |
+| `/doc`               | OpenAPI/Swagger documentation      |
+| `/ws`                | WebSocket endpoint                 |
 
 ## Development
 
@@ -240,6 +227,7 @@ deno task compile
 ```
 
 **Key Features:**
+
 - WebSocket RPC server with auto-discovery
 - Sandboxed script execution with timeout
 - Full TypeScript type safety
@@ -248,15 +236,18 @@ deno task compile
 ## Technical Details
 
 ### Worker-Based Execution
+
 - **Fast Startup**: Workers stay warm, eliminating cold-start overhead
 
 ### Script Sandboxing
+
 - **Isolated Execution**: User scripts run in separate Deno processes
 - **Limited Permissions**: Scripts only have `--allow-net` access
 - **10-Second Timeout**: Automatic termination for long-running scripts
 - **Injected Client**: `tools` object automatically available
 
 ### Type System
+
 - **AST Analysis**: Uses `ts-morph` to extract TypeScript types
 - **Namespace Prefixing**: Prevents conflicts (e.g., `Kv_GetArgs`)
 - **JSDoc Support**: Extracts documentation comments
@@ -274,6 +265,7 @@ deno task compile
 ## Inspiration
 
 This project implements ideas from:
+
 - Cloudflare's "Code Mode: the better way to use MCP"
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
 

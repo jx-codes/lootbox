@@ -52,9 +52,6 @@ export async function startServer(args: string[]): Promise<void> {
     });
     spinner.start();
 
-    // Ensure built-in tools exist in ~/.lootbox/tools
-    // await ensureBuiltinTools();
-
     const config = await get_config();
 
     // Process MCP servers from config
