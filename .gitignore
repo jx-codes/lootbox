@@ -4,6 +4,8 @@ __cache__/
 deno_dir/
 analysis
 .DS_Store
+.lootbox/scripts
+.lootbox/workflows
 
 # Logs
 *.log

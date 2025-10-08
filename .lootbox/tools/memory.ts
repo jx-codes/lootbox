@@ -71,6 +71,8 @@ export interface Entity {
   name: string;
   type: string;
   properties: Record<string, unknown>;
+  created_at: number;
+  updated_at: number;
 }
 
 // Relation interface
@@ -79,6 +81,7 @@ export interface Relation {
   to: string;
   type: string;
   properties?: Record<string, unknown>;
+  created_at?: number;
 }
 
 // Create entities
@@ -169,16 +172,16 @@ export interface GetEntityArgs {
 export interface GetEntityResult {
   entity: Entity | null;
   relations: {
-    outgoing: Array<{ to: string; type: string; properties?: Record<string, unknown> }>;
-    incoming: Array<{ from: string; type: string; properties?: Record<string, unknown> }>;
+    outgoing: Array<{ to: string; type: string; properties?: Record<string, unknown>; created_at: number }>;
+    incoming: Array<{ from: string; type: string; properties?: Record<string, unknown>; created_at: number }>;
   };
 }
 
 export async function getEntity(args: GetEntityArgs): Promise<GetEntityResult> {
   const db = await getDb();
 
-  const entities = db.queryEntries<{ name: string; type: string; properties: string }>(
-    "SELECT name, type, properties FROM entities WHERE name = ?",
+  const entities = db.queryEntries<{ name: string; type: string; properties: string; created_at: number; updated_at: number }>(
+    "SELECT name, type, properties, created_at, updated_at FROM entities WHERE name = ?",
     [args.name]
   );
 
@@ -190,26 +193,30 @@ export async function getEntity(args: GetEntityArgs): Promise<GetEntityResult> {
     name: entities[0].name,
     type: entities[0].type,
     properties: JSON.parse(entities[0].properties),
+    created_at: entities[0].created_at,
+    updated_at: entities[0].updated_at,
   };
 
   // Get outgoing relations
-  const outgoing = db.queryEntries<{ to_entity: string; type: string; properties: string | null }>(
-    "SELECT to_entity, type, properties FROM relations WHERE from_entity = ?",
+  const outgoing = db.queryEntries<{ to_entity: string; type: string; properties: string | null; created_at: number }>(
+    "SELECT to_entity, type, properties, created_at FROM relations WHERE from_entity = ?",
     [args.name]
   ).map(r => ({
     to: r.to_entity,
     type: r.type,
     properties: r.properties ? JSON.parse(r.properties) : undefined,
+    created_at: r.created_at,
   }));
 
   // Get incoming relations
-  const incoming = db.queryEntries<{ from_entity: string; type: string; properties: string | null }>(
-    "SELECT from_entity, type, properties FROM relations WHERE to_entity = ?",
+  const incoming = db.queryEntries<{ from_entity: string; type: string; properties: string | null; created_at: number }>(
+    "SELECT from_entity, type, properties, created_at FROM relations WHERE to_entity = ?",
     [args.name]
   ).map(r => ({
     from: r.from_entity,
     type: r.type,
     properties: r.properties ? JSON.parse(r.properties) : undefined,
+    created_at: r.created_at,
   }));
 
   return {
@@ -224,6 +231,8 @@ export interface SearchArgs {
   type?: string;
   limit?: number;
   offset?: number;
+  sort?: "name" | "created_at" | "updated_at";
+  order?: "asc" | "desc";
 }
 
 export interface SearchResult {
@@ -234,7 +243,7 @@ export interface SearchResult {
 export async function search(args: SearchArgs): Promise<SearchResult> {
   const db = await getDb();
 
-  let sql = "SELECT name, type, properties FROM entities WHERE 1=1";
+  let sql = "SELECT name, type, properties, created_at, updated_at FROM entities WHERE 1=1";
   const params: unknown[] = [];
 
   if (args.query) {
@@ -249,20 +258,24 @@ export async function search(args: SearchArgs): Promise<SearchResult> {
   }
 
   // Get total count
-  const countSql = sql.replace("SELECT name, type, properties", "SELECT COUNT(*) as count");
+  const countSql = sql.replace("SELECT name, type, properties, created_at, updated_at", "SELECT COUNT(*) as count");
   const countResult = db.queryEntries<{ count: number }>(countSql, params);
   const total = countResult[0]?.count || 0;
 
-  // Apply pagination
-  sql += " ORDER BY name LIMIT ? OFFSET ?";
+  // Apply sorting
+  const sortField = args.sort || "updated_at";
+  const sortOrder = args.order || "desc";
+  sql += ` ORDER BY ${sortField} ${sortOrder.toUpperCase()} LIMIT ? OFFSET ?`;
   params.push(args.limit || 50, args.offset || 0);
 
-  const results = db.queryEntries<{ name: string; type: string; properties: string }>(sql, params);
+  const results = db.queryEntries<{ name: string; type: string; properties: string; created_at: number; updated_at: number }>(sql, params);
 
   const entities: Entity[] = results.map(row => ({
     name: row.name,
     type: row.type,
     properties: JSON.parse(row.properties),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   }));
 
   return { entities, total };
@@ -362,13 +375,13 @@ export interface GetGraphArgs {
 
 export interface GetGraphResult {
   entities: Entity[];
-  relations: Array<{ from: string; to: string; type: string; properties?: Record<string, unknown> }>;
+  relations: Array<{ from: string; to: string; type: string; properties?: Record<string, unknown>; created_at: number }>;
 }
 
 export async function getGraph(args: GetGraphArgs): Promise<GetGraphResult> {
   const db = await getDb();
 
-  let entitySql = "SELECT name, type, properties FROM entities";
+  let entitySql = "SELECT name, type, properties, created_at, updated_at FROM entities";
   const entityParams: unknown[] = [];
 
   if (args.type) {
@@ -381,7 +394,7 @@ export async function getGraph(args: GetGraphArgs): Promise<GetGraphResult> {
     entityParams.push(args.limit);
   }
 
-  const entityRows = db.queryEntries<{ name: string; type: string; properties: string }>(
+  const entityRows = db.queryEntries<{ name: string; type: string; properties: string; created_at: number; updated_at: number }>(
     entitySql,
     entityParams
   );
@@ -390,6 +403,8 @@ export async function getGraph(args: GetGraphArgs): Promise<GetGraphResult> {
     name: row.name,
     type: row.type,
     properties: JSON.parse(row.properties),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   }));
 
   const relationRows = db.queryEntries<{
@@ -397,13 +412,15 @@ export async function getGraph(args: GetGraphArgs): Promise<GetGraphResult> {
     to_entity: string;
     type: string;
     properties: string | null;
-  }>("SELECT from_entity, to_entity, type, properties FROM relations");
+    created_at: number;
+  }>("SELECT from_entity, to_entity, type, properties, created_at FROM relations");
 
   const relations = relationRows.map(row => ({
     from: row.from_entity,
     to: row.to_entity,
     type: row.type,
     properties: row.properties ? JSON.parse(row.properties) : undefined,
+    created_at: row.created_at,
   }));
 
   return { entities, relations };

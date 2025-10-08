@@ -10,7 +10,7 @@ import {
 } from "https://deno.land/std@0.208.0/path/mod.ts";
 
 // Configure allowed directories (can be set via environment variables)
-const ALLOWED_DIRS = (Deno.env.get("ALLOWED_DIRS") || "./storage/allowed")
+const ALLOWED_DIRS = (Deno.env.get("ALLOWED_DIRS") || "./lootbox/storage")
   .split(",")
   .map((d) => resolve(d.trim()));
 

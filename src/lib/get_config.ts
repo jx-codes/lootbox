@@ -1,5 +1,8 @@
 import { parseArgs } from "@std/cli";
+import { exists } from "https://deno.land/std@0.208.0/fs/mod.ts";
 import type { Config, McpServerConfig } from "./lootbox-cli/types.ts";
+import { getUserLootboxToolsDir } from "./paths.ts";
+import { join, dirname } from "https://deno.land/std@0.208.0/path/mod.ts";
 
 interface ResolvedConfig {
   lootbox_root: string;
@@ -31,10 +34,42 @@ export const get_config = async (): Promise<ResolvedConfig> => {
   // Load config file
   const config = await loadConfig();
 
-  // Priority: flag > config > defaults
-  const lootboxRoot =
-    (args["lootbox-root"] as string) || config.lootboxRoot || ".lootbox";
-  const toolsDir = `${lootboxRoot}/tools`;
+  // Priority: flag > config > local .lootbox > home ~/.lootbox
+  let lootboxRoot: string;
+  let toolsDir: string;
+
+  if (args["lootbox-root"] as string) {
+    // Explicit flag takes priority
+    lootboxRoot = args["lootbox-root"] as string;
+    toolsDir = `${lootboxRoot}/tools`;
+  } else if (config.lootboxRoot) {
+    // Config file value
+    lootboxRoot = config.lootboxRoot;
+    toolsDir = `${lootboxRoot}/tools`;
+  } else {
+    // Check local .lootbox/tools first
+    const localToolsDir = ".lootbox/tools";
+    if (await exists(localToolsDir)) {
+      lootboxRoot = ".lootbox";
+      toolsDir = localToolsDir;
+    } else {
+      // Fallback to home directory
+      const homeToolsDir = getUserLootboxToolsDir();
+      if (await exists(homeToolsDir)) {
+        lootboxRoot = dirname(homeToolsDir);
+        toolsDir = homeToolsDir;
+      } else {
+        // Neither exists - show error and exit
+        console.error("\n❌ No lootbox directory found!");
+        console.error("\nLooked in:");
+        console.error(`  • ${localToolsDir}`);
+        console.error(`  • ${homeToolsDir}`);
+        console.error("\n💡 Run 'lootbox init' to create a new lootbox project.\n");
+        Deno.exit(1);
+      }
+    }
+  }
+
   const portStr = (args.port as string) || config.port?.toString() || "3000";
   const lootboxDataDir =
     (args["lootbox-data-dir"] as string) || config.lootboxDataDir || null;

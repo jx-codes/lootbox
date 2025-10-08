@@ -92,29 +92,14 @@ export async function getScriptFromArgs(
   evalScript: string | undefined,
   args: string[]
 ): Promise<string> {
+  let script: string;
+
   if (evalScript) {
-    return evalScript;
+    script = evalScript;
   } else if (args.length > 0) {
     const filePath = args[0];
     try {
-      let script = await Deno.readTextFile(filePath);
-
-      // If stdin is piped, prepend it as a global variable
-      if (!Deno.stdin.isTerminal()) {
-        const stdinData = await readStdin();
-        script = `const $STDIN = ${JSON.stringify(stdinData)};
-const stdin = (defaultValue = "") => {
-  const value = typeof $STDIN !== 'undefined' ? $STDIN : defaultValue;
-  return {
-    text: () => value.trim(),
-    json: () => { try { return JSON.parse(value); } catch { return null; } },
-    lines: () => value.split('\\n').filter(l => l.trim()),
-    raw: () => value
-  };
-};
-${script}`;
-      }
-      return script;
+      script = await Deno.readTextFile(filePath);
     } catch (error) {
       console.error(
         `Error reading file '${filePath}':`,
@@ -135,4 +120,22 @@ ${script}`;
     // Read from stdin
     return await readStdin();
   }
+
+  // If stdin is piped, prepend it as a global variable for both -e and file cases
+  if (!Deno.stdin.isTerminal()) {
+    const stdinData = await readStdin();
+    script = `const $STDIN = ${JSON.stringify(stdinData)};
+const stdin = (defaultValue = "") => {
+  const value = typeof $STDIN !== 'undefined' ? $STDIN : defaultValue;
+  return {
+    text: () => value.trim(),
+    json: () => { try { return JSON.parse(value); } catch { return null; } },
+    lines: () => value.split('\\n').filter(l => l.trim()),
+    raw: () => value
+  };
+};
+${script}`;
+  }
+
+  return script;
 }
