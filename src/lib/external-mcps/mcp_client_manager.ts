@@ -3,6 +3,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import type { McpServerConfig } from "./mcp_config.ts";
+import { VERSION } from "../../version.ts";
 
 export class McpClientManager {
   private clients: Map<string, Client>;
@@ -60,7 +61,7 @@ export class McpClientManager {
       const client = new Client(
         {
           name: "lootbox",
-          version: "0.0.52",
+          version: VERSION,
         },
         {
           capabilities: {},

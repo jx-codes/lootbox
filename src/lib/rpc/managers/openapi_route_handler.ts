@@ -27,6 +27,7 @@ import {
 import type { McpIntegrationManager } from "./mcp_integration_manager.ts";
 import type { RpcCacheManager } from "./rpc_cache_manager.ts";
 import type { TypeGeneratorManager } from "./type_generator_manager.ts";
+import { VERSION } from "../../../version.ts";
 
 export class OpenApiRouteHandler {
   constructor(
@@ -248,7 +249,7 @@ export class OpenApiRouteHandler {
     this.app.doc("/openapi.json", {
       openapi: "3.1.0",
       info: {
-        version: "0.0.52",
+        version: VERSION,
         title: "Lootbox API",
         description:
           "REST API for the Lootbox server. Provides TypeScript type definitions, RPC client code generation, namespace discovery, and server health monitoring.",

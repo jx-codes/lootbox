@@ -1,4 +1,5 @@
 {
+  "version": "0.0.53",
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": true,
@@ -6,7 +7,6 @@
     "noImplicitThis": true,
     "noImplicitOverride": true
   },
-
   "tasks": {
     "start": "MODE=development deno run --allow-all src/lootbox-cli.ts server",
     "start:prod": "deno run --allow-all src/lootbox-cli.ts server",
@@ -27,7 +27,9 @@
   },
   "lint": {
     "rules": {
-      "tags": ["recommended"]
+      "tags": [
+        "recommended"
+      ]
     }
   },
   "imports": {

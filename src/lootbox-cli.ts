@@ -35,6 +35,7 @@ import {
   workflowStatus,
   workflowStep,
 } from "./lib/lootbox-cli/workflow.ts";
+import { VERSION } from "./version.ts";
 
 async function main() {
   const args = parseArgs(Deno.args, {
@@ -66,7 +67,7 @@ async function main() {
   }
 
   if (args.version) {
-    console.log("lootbox v0.0.52");
+    console.log(`lootbox v${VERSION}`);
     Deno.exit(0);
   }
 
