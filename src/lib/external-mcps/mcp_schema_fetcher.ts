@@ -128,8 +128,7 @@ export class McpSchemaFetcher {
    * Get cached schemas for a server
    */
   getCachedSchemas(serverName: string): McpServerSchemas | undefined {
-    // return this.cache.get(serverName);
-    return undefined;
+    return this.cache.get(serverName);
   }
 
   /**
