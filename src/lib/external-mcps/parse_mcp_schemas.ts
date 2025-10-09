@@ -82,7 +82,7 @@ function convertToolToFunction(
   const argsInterface = generateArgsInterface(interfaceName, tool.inputSchema);
 
   const func: FunctionSignature = {
-    name: tool.name,
+    name: sanitizedToolName,
     parameters: [
       {
         name: "args",
@@ -129,7 +129,7 @@ function convertResourceToFunction(
   const argsInterface = generateArgsInterface(interfaceName, argSchema);
 
   const func: FunctionSignature = {
-    name: `resource_${resource.name}`,
+    name: `resource_${sanitizedResourceName}`,
     parameters: [
       {
         name: "args",

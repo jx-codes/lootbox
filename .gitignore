@@ -24,3 +24,4 @@ rpc-server
 script-history/
 lootbox
 lootbox.exe
+lootbox.config.json
