@@ -87,15 +87,8 @@ console.log(JSON.stringify({ processed: input.users.length }));
 
 ## Key Patterns
 
-**Available Tools** (after `lootbox init`):
-
-- `tools.kv.*` - Key-value storage
-- `tools.sqlite.*` - SQL database
-- `tools.memory.*` - Knowledge graph
-- `tools.graphql.*` - GraphQL queries
-- `tools.mcp_*` - External MCP servers (if configured)
-
 **The `tools` Object**: Always available in your code, pre-injected. No imports needed.
+**Fetch and other --allow-net apis
 
 **Return Values**: Do not return from scripts always log what you want to see.
 
