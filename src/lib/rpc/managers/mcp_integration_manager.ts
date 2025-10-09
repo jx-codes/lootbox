@@ -116,11 +116,18 @@ export class McpIntegrationManager {
   /**
    * Get all MCP schemas for type generation
    */
-  getSchemas(): McpServerSchemas[] {
+  async getSchemas(): Promise<McpServerSchemas[]> {
     if (!this.state) {
       return [];
     }
-    return this.state.schemaFetcher.getAllSchemas();
+    const schemas: McpServerSchemas[] = [];
+    for (const serverName of this.state.clientManager.getConnectedServerNames()) {
+      const client = this.state.clientManager.getClient(serverName);
+      if (client) {
+        schemas.push(await this.state.schemaFetcher.fetchSchemas(client, serverName));
+      }
+    }
+    return schemas;
   }
 
   /**

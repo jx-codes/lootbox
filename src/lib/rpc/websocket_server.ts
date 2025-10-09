@@ -72,7 +72,7 @@ export class WebSocketRpcServer {
     this.rpcCacheManager.onCacheRefreshed(async () => {
       try {
         const schemas = this.mcpIntegrationManager.isEnabled()
-          ? this.mcpIntegrationManager.getSchemas()
+          ? await this.mcpIntegrationManager.getSchemas()
           : undefined;
         const clientCode = await this.typeGeneratorManager.generateClientCode(
           this.currentPort,
@@ -115,7 +115,7 @@ export class WebSocketRpcServer {
 
     // Phase 2.5: Generate initial client code
     const schemas = this.mcpIntegrationManager.isEnabled()
-      ? this.mcpIntegrationManager.getSchemas()
+      ? await this.mcpIntegrationManager.getSchemas()
       : undefined;
     const clientCode = await this.typeGeneratorManager.generateClientCode(
       port,

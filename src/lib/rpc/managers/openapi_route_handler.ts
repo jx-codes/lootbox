@@ -97,7 +97,7 @@ export class OpenApiRouteHandler {
       }),
       async (c) => {
         const schemas = this.mcpIntegrationManager.isEnabled()
-          ? this.mcpIntegrationManager.getSchemas()
+          ? await this.mcpIntegrationManager.getSchemas()
           : undefined;
         const namespaces =
           await this.typeGeneratorManager.getAvailableNamespaces(schemas);
@@ -127,7 +127,7 @@ export class OpenApiRouteHandler {
       }),
       async (c) => {
         const schemas = this.mcpIntegrationManager.isEnabled()
-          ? this.mcpIntegrationManager.getSchemas()
+          ? await this.mcpIntegrationManager.getSchemas()
           : undefined;
         const metadata = await this.typeGeneratorManager.getNamespaceMetadata(
           schemas
@@ -165,7 +165,7 @@ export class OpenApiRouteHandler {
         let cached = this.typeGeneratorManager.getCachedTypes();
         if (!cached) {
           const schemas = this.mcpIntegrationManager.isEnabled()
-            ? this.mcpIntegrationManager.getSchemas()
+            ? await this.mcpIntegrationManager.getSchemas()
             : undefined;
           cached = await this.typeGeneratorManager.generateTypes(schemas);
           this.typeGeneratorManager.setCachedTypes(cached);
@@ -203,7 +203,7 @@ export class OpenApiRouteHandler {
           .split(",")
           .map((ns) => ns.trim());
         const schemas = this.mcpIntegrationManager.isEnabled()
-          ? this.mcpIntegrationManager.getSchemas()
+          ? await this.mcpIntegrationManager.getSchemas()
           : undefined;
         const types = await this.typeGeneratorManager.generateNamespaceTypes(
           requestedNamespaces,

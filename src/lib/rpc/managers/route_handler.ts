@@ -45,7 +45,7 @@ export class RouteHandler {
 
     app.get("/namespaces", async (c) => {
       const schemas = this.mcpIntegrationManager.isEnabled()
-        ? this.mcpIntegrationManager.getSchemas()
+        ? await this.mcpIntegrationManager.getSchemas()
         : undefined;
       const namespaces = await this.typeGeneratorManager.getAvailableNamespaces(
         schemas
@@ -55,7 +55,7 @@ export class RouteHandler {
 
     app.get("/rpc-namespaces", async (c) => {
       const schemas = this.mcpIntegrationManager.isEnabled()
-        ? this.mcpIntegrationManager.getSchemas()
+        ? await this.mcpIntegrationManager.getSchemas()
         : undefined;
       const metadata = await this.typeGeneratorManager.getNamespaceMetadata(
         schemas
@@ -72,7 +72,7 @@ export class RouteHandler {
       let cached = this.typeGeneratorManager.getCachedTypes();
       if (!cached) {
         const schemas = this.mcpIntegrationManager.isEnabled()
-          ? this.mcpIntegrationManager.getSchemas()
+          ? await this.mcpIntegrationManager.getSchemas()
           : undefined;
         cached = await this.typeGeneratorManager.generateTypes(schemas);
         this.typeGeneratorManager.setCachedTypes(cached);
@@ -86,7 +86,7 @@ export class RouteHandler {
         .split(",")
         .map((ns) => ns.trim());
       const schemas = this.mcpIntegrationManager.isEnabled()
-        ? this.mcpIntegrationManager.getSchemas()
+        ? await this.mcpIntegrationManager.getSchemas()
         : undefined;
       const types = await this.typeGeneratorManager.generateNamespaceTypes(
         requestedNamespaces,
