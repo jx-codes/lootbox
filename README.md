@@ -1,6 +1,15 @@
-# Lootbox
+# Lootbox - Code Mode for LLMs
 
-A **local-first** TypeScript WebSocket RPC server that enables LLMs to execute code instead of using traditional tool calling. Runs entirely on your machine with your own functions.
+Code mode doesn't replace MCP - it orchestrates it.
+
+Example: Fetch Jira issues, filter high-priority, store in KV
+- MCP: 4 sequential tool calls
+- Code mode: 1 script that calls 4 tools
+
+The script is reusable. Now you have a "get-high-priority-jira" 
+tool. It's tools all the way up.
+
+That's what Lootbox does.
 
 ## What it is
 
