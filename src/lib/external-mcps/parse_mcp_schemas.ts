@@ -77,12 +77,11 @@ function convertToolToFunction(
   argsInterface: InterfaceDefinition | null;
 } {
   const sanitizedServerName = sanitizeIdentifier(serverName);
-  const sanitizedToolName = sanitizeIdentifier(tool.name);
-  const interfaceName = `Mcp${capitalizeFirst(sanitizedServerName)}_${capitalizeFirst(sanitizedToolName)}Args`;
+  const interfaceName = `Mcp${capitalizeFirst(sanitizedServerName)}_${capitalizeFirst(tool.name)}Args`;
   const argsInterface = generateArgsInterface(interfaceName, tool.inputSchema);
 
   const func: FunctionSignature = {
-    name: sanitizedToolName,
+    name: tool.name, // Already sanitized in schema
     parameters: [
       {
         name: "args",
@@ -118,8 +117,7 @@ function convertResourceToFunction(
   argsInterface: InterfaceDefinition | null;
 } {
   const sanitizedServerName = sanitizeIdentifier(serverName);
-  const sanitizedResourceName = sanitizeIdentifier(resource.name);
-  const interfaceName = `Mcp${capitalizeFirst(sanitizedServerName)}_Resource${capitalizeFirst(sanitizedResourceName)}Args`;
+  const interfaceName = `Mcp${capitalizeFirst(sanitizedServerName)}_Resource${capitalizeFirst(resource.name)}Args`;
 
   // Parse URI template if present, otherwise empty interface
   const argSchema = resource.uriTemplate
@@ -129,7 +127,7 @@ function convertResourceToFunction(
   const argsInterface = generateArgsInterface(interfaceName, argSchema);
 
   const func: FunctionSignature = {
-    name: `resource_${sanitizedResourceName}`,
+    name: `resource_${resource.name}`, // Already sanitized in schema
     parameters: [
       {
         name: "args",

@@ -17,6 +17,7 @@ interface McpExecutionResult {
  */
 export async function executeMcpTool(
   clientManager: McpClientManager,
+  schemaFetcher: McpSchemaFetcher,
   serverName: string,
   toolName: string,
   args: unknown
@@ -31,19 +32,36 @@ export async function executeMcpTool(
       };
     }
 
+    // Get original name from schema
+    const schemas = schemaFetcher.getCachedSchemas(serverName);
+    if (!schemas) {
+      return {
+        success: false,
+        error: `No cached schemas found for server '${serverName}'`,
+      };
+    }
+
+    const tool = schemas.tools.find((t) => t.name === toolName);
+    if (!tool) {
+      return {
+        success: false,
+        error: `Tool '${toolName}' not found in server '${serverName}'`,
+      };
+    }
+
     console.error(
-      `Executing MCP tool: ${serverName}.${toolName} with args:`,
+      `Executing MCP tool: ${serverName}.${tool.originalName} with args:`,
       args
     );
 
-    // Execute with timeout
+    // Execute with timeout using original name
     const result = await executeWithTimeout(
-      client.callTool({ name: toolName, arguments: args as Record<string, unknown> | undefined }),
+      client.callTool({ name: tool.originalName, arguments: args as Record<string, unknown> | undefined }),
       30000,
-      `Tool call ${serverName}.${toolName} timed out after 30 seconds`
+      `Tool call ${serverName}.${tool.originalName} timed out after 30 seconds`
     );
 
-    console.error(`MCP tool ${serverName}.${toolName} completed successfully`);
+    console.error(`MCP tool ${serverName}.${tool.originalName} completed successfully`);
 
     // Extract result from MCP response
     return {
@@ -103,18 +121,18 @@ export async function executeMcpResource(
     const uri = buildResourceUri(resource, args);
 
     console.error(
-      `Reading MCP resource: ${serverName}.${resourceName} from URI: ${uri}`
+      `Reading MCP resource: ${serverName}.${resource.originalName} from URI: ${uri}`
     );
 
     // Execute with timeout
     const result = await executeWithTimeout(
       client.readResource({ uri }),
       30000,
-      `Resource read ${serverName}.${resourceName} timed out after 30 seconds`
+      `Resource read ${serverName}.${resource.originalName} timed out after 30 seconds`
     );
 
     console.error(
-      `MCP resource ${serverName}.${resourceName} read successfully`
+      `MCP resource ${serverName}.${resource.originalName} read successfully`
     );
 
     return {

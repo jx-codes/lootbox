@@ -3,13 +3,15 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 export interface McpToolSchema {
-  name: string;
+  name: string; // Sanitized name for TypeScript
+  originalName: string; // Original name from MCP server
   description?: string;
   inputSchema: Record<string, unknown>;
 }
 
 export interface McpResourceSchema {
-  name: string;
+  name: string; // Sanitized name for TypeScript
+  originalName: string; // Original name from MCP server
   description?: string;
   uri?: string;
   uriTemplate?: string;
@@ -74,7 +76,8 @@ export class McpSchemaFetcher {
       }
 
       return response.tools.map((tool) => ({
-        name: tool.name,
+        name: this.sanitizeIdentifier(tool.name),
+        originalName: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema as Record<string, unknown>,
       }));
@@ -105,7 +108,8 @@ export class McpSchemaFetcher {
       }
 
       return response.resources.map((resource) => ({
-        name: resource.name,
+        name: this.sanitizeIdentifier(resource.name),
+        originalName: resource.name,
         description: resource.description,
         uri: resource.uri,
         uriTemplate: resource.uriTemplate as string | undefined,
@@ -139,5 +143,12 @@ export class McpSchemaFetcher {
    */
   hasCachedSchemas(serverName: string): boolean {
     return this.cache.has(serverName);
+  }
+
+  /**
+   * Sanitize string to be a valid TypeScript identifier
+   */
+  private sanitizeIdentifier(str: string): string {
+    return str.replace(/[^a-zA-Z0-9_]/g, "_");
   }
 }

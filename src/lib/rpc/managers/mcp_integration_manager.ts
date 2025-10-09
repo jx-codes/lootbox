@@ -105,6 +105,7 @@ export class McpIntegrationManager {
       // It's a tool call
       return await executeMcpTool(
         this.state.clientManager,
+        this.state.schemaFetcher,
         serverName,
         operationName,
         args
