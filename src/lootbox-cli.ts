@@ -1,6 +1,6 @@
 import { parseArgs } from "@std/cli";
 import { loadConfig } from "./lib/lootbox-cli/config.ts";
-import { executeScript, getScriptFromArgs } from "./lib/lootbox-cli/exec.ts";
+import { executeScript, getScriptFromArgs, execInline } from "./lib/lootbox-cli/exec.ts";
 import {
   showConfigHelp,
   showHumanHelp,
@@ -8,15 +8,24 @@ import {
 } from "./lib/lootbox-cli/help.ts";
 import { init } from "./lib/lootbox-cli/init.ts";
 import { startServer } from "./lib/lootbox-cli/server.ts";
-import { wsUrlToHttpUrl } from "./lib/lootbox-cli/utils.ts";
 import {
   workflowAbort,
   workflowReset,
   workflowStart,
   workflowStatus,
   workflowStep,
+  showWorkflowLlmHelp,
 } from "./lib/lootbox-cli/workflow.ts";
-import { scriptsInit, scriptsList } from "./lib/lootbox-cli/scripts.ts";
+import {
+  scriptsInit,
+  scriptsList,
+  showScriptsLlmHelp,
+} from "./lib/lootbox-cli/scripts.ts";
+import {
+  toolsList,
+  toolsTypes,
+  showToolsLlmHelp,
+} from "./lib/lootbox-cli/tools.ts";
 import { VERSION } from "./version.ts";
 
 async function main() {
@@ -26,6 +35,7 @@ async function main() {
       "help",
       "human-help",
       "llm-help",
+      "llm",
       "version",
       "namespaces",
       "config-help",
@@ -72,8 +82,63 @@ async function main() {
     return;
   }
 
+  // Handle tools commands
+  if (firstArg === "tools") {
+    const toolsCommand = args._[1] as string | undefined;
+
+    // Check for --llm flag first
+    if (args.llm) {
+      showToolsLlmHelp();
+      return;
+    }
+
+    // Load config for serverUrl
+    const config = await loadConfig();
+    const serverUrl = config.serverUrl || (config.port ? `ws://localhost:${config.port}/ws` : "ws://localhost:3000/ws");
+
+    if (!toolsCommand || toolsCommand === "list") {
+      await toolsList(serverUrl);
+    } else if (toolsCommand === "types") {
+      const namespaces = args._[2] as string | undefined;
+      if (!namespaces) {
+        console.error("Error: tools types requires namespace argument");
+        console.error("Usage: lootbox tools types <ns1,ns2,...>");
+        Deno.exit(1);
+      }
+      await toolsTypes(namespaces, serverUrl);
+    } else {
+      console.error(`Error: Unknown tools command '${toolsCommand}'`);
+      console.error("Available commands: list, types");
+      Deno.exit(1);
+    }
+    return;
+  }
+
+  // Handle exec command
+  if (firstArg === "exec") {
+    const code = args._[1] as string | undefined;
+    if (!code) {
+      console.error("Error: exec requires code argument");
+      console.error("Usage: lootbox exec '<code>'");
+      Deno.exit(1);
+    }
+
+    // Load config for serverUrl
+    const config = await loadConfig();
+    const serverUrl = config.serverUrl || (config.port ? `ws://localhost:${config.port}/ws` : "ws://localhost:3000/ws");
+
+    await execInline(code, serverUrl);
+    return;
+  }
+
   // Handle workflow commands
   if (firstArg === "workflow") {
+    // Check for --llm flag first
+    if (args.llm) {
+      showWorkflowLlmHelp();
+      return;
+    }
+
     const workflowCommand = args._[1] as string | undefined;
     const workflowArgs = args._.slice(2) as string[];
 
@@ -113,6 +178,12 @@ async function main() {
 
   // Handle scripts commands
   if (firstArg === "scripts") {
+    // Check for --llm flag first
+    if (args.llm) {
+      showScriptsLlmHelp();
+      return;
+    }
+
     const scriptsCommand = args._[1] as string | undefined;
     const scriptsArgs = args._.slice(2) as string[];
 
@@ -146,49 +217,6 @@ async function main() {
     serverUrl = `ws://localhost:${config.port}/ws`;
   } else {
     serverUrl = "ws://localhost:3000/ws";
-  }
-  const httpUrl = wsUrlToHttpUrl(serverUrl);
-
-  // Handle discovery flags
-  if (args.namespaces) {
-    try {
-      const response = await fetch(`${httpUrl}/namespaces`);
-      if (!response.ok) {
-        console.error(`Error fetching namespaces: ${response.statusText}`);
-        Deno.exit(1);
-      }
-      const text = await response.text();
-      console.log(
-        `${text}\n\nSuggested Next Step: lootbox --types <namespace1>,..,<namespace2>\nUsage: tools.<namespace>.<function>({ args })`
-      );
-      Deno.exit(0);
-    } catch (error) {
-      console.error(
-        `Error connecting to server:`,
-        error instanceof Error ? error.message : String(error)
-      );
-      Deno.exit(1);
-    }
-  }
-
-  if (args.types) {
-    const namespaces = args.types as string;
-    try {
-      const response = await fetch(`${httpUrl}/types/${namespaces}`);
-      if (!response.ok) {
-        console.error(`Error fetching types: ${response.statusText}`);
-        Deno.exit(1);
-      }
-      const types = await response.text();
-      console.log(types);
-      Deno.exit(0);
-    } catch (error) {
-      console.error(
-        `Error connecting to server:`,
-        error instanceof Error ? error.message : String(error)
-      );
-      Deno.exit(1);
-    }
   }
 
   // Get script from various sources

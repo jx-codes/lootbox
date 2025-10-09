@@ -416,3 +416,27 @@ export async function workflowAbort(reason: string): Promise<void> {
   console.log(`Workflow aborted: ${reason}`);
   await deleteWorkflowState();
 }
+
+/**
+ * Show LLM-focused help for workflows
+ */
+export function showWorkflowLlmHelp() {
+  console.log(`lootbox workflow - Workflow Execution
+
+COMMANDS:
+  lootbox workflow step                         Show/execute current step
+  lootbox workflow step --end-loop="reason"     End loop early (after min iterations)
+  lootbox workflow abort --abort="reason"       Abort workflow with reason
+  lootbox workflow status                       Check current position
+
+WORKFLOW FILES:
+  Located in .lootbox/workflows/ (auto-resolved)
+  Format: YAML with steps array
+
+EXAMPLE:
+  lootbox workflow start tutorial.yaml
+  lootbox workflow step
+  lootbox workflow step --end-loop="task complete"
+  lootbox workflow abort --abort="changing approach"
+`);
+}

@@ -2,6 +2,13 @@ import type { ExecResponse } from "./types.ts";
 import { generateId, readStdin } from "./utils.ts";
 import { get_config } from "../get_config.ts";
 
+/**
+ * Execute inline code directly
+ */
+export async function execInline(code: string, serverUrl: string): Promise<void> {
+  await executeScript(code, serverUrl);
+}
+
 export async function executeScript(
   script: string,
   serverUrl: string

@@ -129,6 +129,35 @@ export async function scriptsList(): Promise<void> {
 }
 
 /**
+ * Show LLM-focused help for scripts
+ */
+export function showScriptsLlmHelp() {
+  console.log(`lootbox scripts - Script Management
+
+COMMANDS:
+  lootbox scripts                   List available scripts with examples
+  lootbox scripts init <filename>   Create new script from template
+
+EXECUTION:
+  lootbox <script.ts>               Run script (auto-resolves from scripts dir)
+  cat data.json | lootbox script.ts Pipe data to script (use stdin().json())
+
+SCRIPT FORMAT:
+  /**
+   * Brief description
+   * @example echo '{"data": "value"}' | lootbox script.ts
+   */
+  const input = stdin().json();
+  console.log(JSON.stringify(result));
+
+EXAMPLES:
+  lootbox scripts
+  lootbox scripts init process-data
+  echo '{"tags": ["a", "b"]}' | lootbox memory/tags.ts
+`);
+}
+
+/**
  * Initialize a new script from template
  */
 export async function scriptsInit(filename: string): Promise<void> {

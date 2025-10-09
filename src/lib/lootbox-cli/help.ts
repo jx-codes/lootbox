@@ -5,13 +5,13 @@ Sandboxed TypeScript runtime for executing scripts with network access and
 discoverable tool functions.
 
 DISCOVERY:
-  lootbox --namespaces              List available function namespaces
-  lootbox --types <ns1,ns2>         Get TypeScript signatures for namespaces
+  lootbox tools                     List available function namespaces
+  lootbox tools types <ns1,ns2>     Get TypeScript signatures
   lootbox scripts                   List available scripts with examples
 
 EXECUTION:
-  lootbox file.ts                   Execute TypeScript file
-  lootbox -e 'code'                 Execute inline code
+  lootbox script.ts                 Execute TypeScript file
+  lootbox exec 'code'               Execute inline code
   cat file.ts | lootbox             Execute from stdin
 
 AVAILABLE APIS:
@@ -19,7 +19,7 @@ AVAILABLE APIS:
   console.log() / console.error()
   fetch(url, options)               HTTP requests
   Promise.all([...])                Parallel execution
-  stdin(default = "")                    Access piped stdin data
+  stdin(default = "")               Access piped stdin data
     .text()                         Returns trimmed text
     .json()                         Returns parsed JSON or null
     .lines()                        Returns array of non-empty lines
@@ -31,24 +31,29 @@ CONSTRAINTS:
 
 EXAMPLES:
   # Discover and use tools
-  lootbox --namespaces
-  lootbox --types namespace1
-  lootbox -e 'console.log(await tools.namespace1.func({arg: "value"}))'
+  lootbox tools
+  lootbox tools types namespace1
+  lootbox exec 'console.log(await tools.namespace1.func({arg: "value"}))'
 
   # Parallel execution
-  lootbox -e 'const [r1, r2] = await Promise.all([tools.ns1.f1({}), tools.ns2.f2({})])'
+  lootbox exec 'const [r1, r2] = await Promise.all([tools.ns1.f1({}), tools.ns2.f2({})])'
 
   # Process piped data
-  cat data.json | lootbox -e 'console.log(stdin().json())'
+  cat data.json | lootbox exec 'console.log(stdin().json())'
 
-  # Composability (chain scripts)
+  # Composability
   lootbox script1.ts | jq '.data' | lootbox script2.ts
 
 WORKFLOW EXECUTION:
   workflow step                             Execute current workflow step
-  workflow step --end-loop="reason"         Advance from loop with reason (if min iterations met)
+  workflow step --end-loop="reason"         Advance from loop (after min iterations)
   workflow abort --abort="reason"           Abort workflow with reason
   workflow status                           Check workflow position
+
+COMMAND-SPECIFIC HELP:
+  lootbox tools --llm       Detailed tool discovery help
+  lootbox scripts --llm     Detailed script management help
+  lootbox workflow --llm    Detailed workflow execution help
 `);
 }
 
@@ -61,8 +66,9 @@ you orchestrate, fetch, and transform data.
 
 Usage:
   lootbox [OPTIONS] [FILE]
-  lootbox -e <script>
-  cat script.ts | lootbox
+  lootbox exec <code>
+  lootbox tools [subcommand]
+  lootbox scripts [subcommand]
   lootbox workflow <command> [args]
   lootbox server [OPTIONS]
 
@@ -83,17 +89,13 @@ Function Library (tools object):
     tools.namespace2.anotherFunction({ param: "value" })
 
   Discovery:
-    Use --namespaces to list all available namespaces
-    Use --types <namespace> to see TypeScript signatures for a namespace
+    lootbox tools              List all available namespaces
+    lootbox tools types <ns>   See TypeScript signatures for namespace
 
 Options:
-  -e, --eval <script>         Execute inline script
-                              Note: For complex scripts with special characters, save to a
-                              file and pipe it instead: cat script.ts | lootbox
   -s, --server <url>          WebSocket server URL (default: ws://localhost:3000/ws)
-  --namespaces                List all namespaces available in tools object
-  --types <ns1,ns2,...>       Show TypeScript types for specific namespaces
   --config-help               Show configuration file information
+  --llm-help                  Show LLM-focused help (command index)
   -h, --help                  Show this help message
   -v, --version               Show version
 
@@ -115,21 +117,25 @@ Server Commands:
     --lootbox-root <path>     Lootbox root directory (default: .lootbox)
     --lootbox-data-dir <path> Data directory (optional, defaults to ~/.local/share/lootbox)
 
+Tool Discovery:
+  lootbox tools                            # List all available namespaces
+  lootbox tools types sqlite,fetch         # Get TypeScript types
+  lootbox tools --llm                      # LLM-focused help
+
+Execution:
+  lootbox script.ts                        # Execute script file
+  lootbox exec 'console.log("Hello")'      # Execute inline code
+  cat data.json | lootbox script.ts        # Pipe data to script
+
 Examples:
-  # Discover available functions
-  lootbox --namespaces
-  lootbox --types namespace1,namespace2
+  # Using tools in inline code
+  lootbox exec 'console.log(await tools.sqlite.query({ sql: "SELECT 1" }))'
 
-  # Execute scripts with tools
-  lootbox -e 'console.log(await tools.namespace1.functionName({arg: "value"}))'
-  lootbox script.ts
-  echo 'console.log(await tools.namespace2.anotherFunction({param: 123}))' | lootbox
+  # Parallel execution
+  lootbox exec 'const [r1, r2] = await Promise.all([tools.ns1.f1({}), tools.ns2.f2({})]); console.log(r1, r2)'
 
-  # Parallel execution with Promise.all
-  lootbox -e 'const [r1, r2] = await Promise.all([tools.namespace1.func1({a:1}), tools.namespace2.func2({b:2})]); console.log(r1, r2)'
-
-  # Using fetch alongside tools
-  lootbox -e 'const data = await fetch("https://api.example.com/data").then(r => r.json()); console.log(data)'
+  # Using fetch
+  lootbox exec 'const data = await fetch("https://api.example.com").then(r => r.json()); console.log(data)'
 
   # Workflow execution
   lootbox workflow start tutorial.yaml
