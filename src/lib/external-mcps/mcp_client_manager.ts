@@ -55,7 +55,10 @@ export class McpClientManager {
       const transport = new StdioClientTransport({
         command: config.command,
         args: config.args,
-        env: config.env,
+        env: {
+          ...Deno.env.toObject(),
+          ...config.env,
+        },
       });
 
       const client = new Client(

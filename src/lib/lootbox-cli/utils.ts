@@ -10,22 +10,10 @@ export function wsUrlToHttpUrl(wsUrl: string): string {
     .replace(/\/ws$/, "");
 }
 
+import { removeSlashes } from "npm:slashes@3.0.12";
+
 export async function readStdin(): Promise<string> {
-  const decoder = new TextDecoder();
-  const chunks: Uint8Array[] = [];
-
-  for await (const chunk of Deno.stdin.readable) {
-    chunks.push(chunk);
-  }
-
-  const combined = new Uint8Array(
-    chunks.reduce((acc, chunk) => acc + chunk.length, 0)
-  );
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return decoder.decode(combined);
+  const raw = await new Response(Deno.stdin.readable).text();
+  // Remove bash-escaped backslashes like \!
+  return removeSlashes(raw);
 }

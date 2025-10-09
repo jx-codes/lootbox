@@ -66,13 +66,20 @@ async function initSchema(): Promise<void> {
   `);
 }
 
-// Entity interface
+// Entity interface (with timestamps)
 export interface Entity {
   name: string;
   type: string;
   properties: Record<string, unknown>;
   created_at: number;
   updated_at: number;
+}
+
+// Entity input (without timestamps - generated automatically)
+export interface EntityInput {
+  name: string;
+  type: string;
+  properties: Record<string, unknown>;
 }
 
 // Relation interface
@@ -86,7 +93,7 @@ export interface Relation {
 
 // Create entities
 export interface CreateEntitiesArgs {
-  entities: Entity[];
+  entities: EntityInput[];
 }
 
 export interface CreateEntitiesResult {
