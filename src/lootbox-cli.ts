@@ -1,22 +1,3 @@
-#!/usr/bin/env -S deno run --allow-net --allow-read --allow-write
-/**
- * lootbox - Lightweight WebSocket client for one-shot script execution
- *
- * Usage:
- *   lootbox script.ts                    # Execute file
- *   lootbox -e 'console.log(1+1)'       # Execute inline
- *   cat script.ts | lootbox              # Execute from stdin
- *   lootbox --server ws://host:9000/ws script.ts
- *   lootbox workflow start workflow.yaml  # Start workflow
- *   lootbox workflow step                 # Get next workflow step
- *
- * Configuration:
- *   Reads from lootbox.config.json in current directory if present.
- *   Set "port" to configure both client and server (client derives ws://localhost:{port}/ws).
- *   Set "serverUrl" to override with custom host/protocol (e.g., remote server or wss://).
- *   CLI --server flag overrides config file.
- */
-
 import { parseArgs } from "@std/cli";
 import { loadConfig } from "./lib/lootbox-cli/config.ts";
 import { executeScript, getScriptFromArgs } from "./lib/lootbox-cli/exec.ts";
@@ -35,6 +16,7 @@ import {
   workflowStatus,
   workflowStep,
 } from "./lib/lootbox-cli/workflow.ts";
+import { scriptsInit, scriptsList } from "./lib/lootbox-cli/scripts.ts";
 import { VERSION } from "./version.ts";
 
 async function main() {
@@ -125,6 +107,28 @@ async function main() {
         console.error(`Error: Unknown workflow command '${workflowCommand}'`);
         console.error("Available commands: start, step, reset, status, abort");
         Deno.exit(1);
+    }
+    return;
+  }
+
+  // Handle scripts commands
+  if (firstArg === "scripts") {
+    const scriptsCommand = args._[1] as string | undefined;
+    const scriptsArgs = args._.slice(2) as string[];
+
+    if (!scriptsCommand || scriptsCommand === "list") {
+      await scriptsList();
+    } else if (scriptsCommand === "init") {
+      if (scriptsArgs.length === 0) {
+        console.error("Error: scripts init requires a filename argument");
+        console.error("Usage: lootbox scripts init <filename>");
+        Deno.exit(1);
+      }
+      await scriptsInit(scriptsArgs[0]);
+    } else {
+      console.error(`Error: Unknown scripts command '${scriptsCommand}'`);
+      console.error("Available commands: list, init");
+      Deno.exit(1);
     }
     return;
   }

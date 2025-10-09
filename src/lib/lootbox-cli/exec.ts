@@ -1,5 +1,6 @@
 import type { ExecResponse } from "./types.ts";
 import { generateId, readStdin } from "./utils.ts";
+import { get_config } from "../get_config.ts";
 
 export async function executeScript(
   script: string,
@@ -88,6 +89,25 @@ export async function executeScript(
   }
 }
 
+async function resolveScriptPath(file: string): Promise<string> {
+  // Try the path as-is first
+  try {
+    await Deno.stat(file);
+    return file;
+  } catch {
+    // If not found, try in scripts directory
+    const config = await get_config();
+    const fallbackPath = `${config.scripts_dir}/${file}`;
+    try {
+      await Deno.stat(fallbackPath);
+      return fallbackPath;
+    } catch {
+      // Return original path so error message is accurate
+      return file;
+    }
+  }
+}
+
 export async function getScriptFromArgs(
   evalScript: string | undefined,
   args: string[]
@@ -97,7 +117,7 @@ export async function getScriptFromArgs(
   if (evalScript) {
     script = evalScript;
   } else if (args.length > 0) {
-    const filePath = args[0];
+    const filePath = await resolveScriptPath(args[0]);
     try {
       script = await Deno.readTextFile(filePath);
     } catch (error) {

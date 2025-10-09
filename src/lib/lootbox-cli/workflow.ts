@@ -150,10 +150,10 @@ async function resolveWorkflowPath(file: string): Promise<string> {
     await Deno.stat(file);
     return file;
   } catch {
-    // If not found, try in .lootbox/workflows/
+    // If not found, try in workflows directory
     const { get_config } = await import("../get_config.ts");
     const config = await get_config();
-    const fallbackPath = `${config.lootbox_root}/workflows/${file}`;
+    const fallbackPath = `${config.workflows_dir}/${file}`;
     try {
       await Deno.stat(fallbackPath);
       return fallbackPath;

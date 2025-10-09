@@ -19,3 +19,17 @@ function getHomeDir(): string {
 export function getUserLootboxToolsDir(): string {
   return join(getHomeDir(), ".lootbox", "tools");
 }
+
+/**
+ * Get the global lootbox workflows directory (~/.lootbox/workflows)
+ */
+export function getUserLootboxWorkflowsDir(): string {
+  return join(getHomeDir(), ".lootbox", "workflows");
+}
+
+/**
+ * Get the global lootbox scripts directory (~/.lootbox/scripts)
+ */
+export function getUserLootboxScriptsDir(): string {
+  return join(getHomeDir(), ".lootbox", "scripts");
+}

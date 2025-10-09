@@ -7,6 +7,7 @@ discoverable tool functions.
 DISCOVERY:
   lootbox --namespaces              List available function namespaces
   lootbox --types <ns1,ns2>         Get TypeScript signatures for namespaces
+  lootbox scripts                   List available scripts with examples
 
 EXECUTION:
   lootbox file.ts                   Execute TypeScript file
@@ -39,6 +40,9 @@ EXAMPLES:
 
   # Process piped data
   cat data.json | lootbox -e 'console.log(stdin().json())'
+
+  # Composability (chain scripts)
+  lootbox script1.ts | jq '.data' | lootbox script2.ts
 
 WORKFLOW EXECUTION:
   workflow step                             Execute current workflow step
@@ -101,6 +105,10 @@ Workflow Commands:
   workflow reset                          Reset workflow to the beginning
   workflow status                         Show current workflow status
 
+Script Management:
+  scripts                                 List all available scripts with descriptions
+  scripts init <filename>                 Create new script from template (auto-adds .ts extension)
+
 Server Commands:
   server                      Start the WebSocket RPC server
     --port <port>             Server port (default: 3000)
@@ -129,6 +137,11 @@ Examples:
   lootbox workflow step --end-loop="completed the task"   # End loop early with reason
   lootbox workflow abort --abort="switching approach"     # Abort workflow
   lootbox workflow status                                 # Check progress
+
+  # Script management
+  lootbox scripts                       # List all available scripts
+  lootbox scripts init fetch-data       # Create new script (auto-adds .ts)
+  lootbox fetch-data.ts                 # Run the script
 
   # Server mode
   lootbox server                        # Uses defaults (port 3000, ./lootbox/tools)

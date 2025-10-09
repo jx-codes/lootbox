@@ -1,12 +1,18 @@
 import { parseArgs } from "@std/cli";
 import { exists } from "https://deno.land/std@0.208.0/fs/mod.ts";
 import type { Config, McpServerConfig } from "./lootbox-cli/types.ts";
-import { getUserLootboxToolsDir } from "./paths.ts";
+import {
+  getUserLootboxToolsDir,
+  getUserLootboxWorkflowsDir,
+  getUserLootboxScriptsDir
+} from "./paths.ts";
 import { join, dirname } from "https://deno.land/std@0.208.0/path/mod.ts";
 
 interface ResolvedConfig {
   lootbox_root: string;
   tools_dir: string;
+  workflows_dir: string;
+  scripts_dir: string;
   port: number;
   lootbox_data_dir: string | null;
   mcp_servers: Record<string, McpServerConfig> | null;
@@ -37,27 +43,37 @@ export const get_config = async (): Promise<ResolvedConfig> => {
   // Priority: flag > config > local .lootbox > home ~/.lootbox
   let lootboxRoot: string;
   let toolsDir: string;
+  let workflowsDir: string;
+  let scriptsDir: string;
 
   if (args["lootbox-root"] as string) {
     // Explicit flag takes priority
     lootboxRoot = args["lootbox-root"] as string;
     toolsDir = `${lootboxRoot}/tools`;
+    workflowsDir = `${lootboxRoot}/workflows`;
+    scriptsDir = `${lootboxRoot}/scripts`;
   } else if (config.lootboxRoot) {
     // Config file value
     lootboxRoot = config.lootboxRoot;
     toolsDir = `${lootboxRoot}/tools`;
+    workflowsDir = `${lootboxRoot}/workflows`;
+    scriptsDir = `${lootboxRoot}/scripts`;
   } else {
     // Check local .lootbox/tools first
     const localToolsDir = ".lootbox/tools";
     if (await exists(localToolsDir)) {
       lootboxRoot = ".lootbox";
       toolsDir = localToolsDir;
+      workflowsDir = `${lootboxRoot}/workflows`;
+      scriptsDir = `${lootboxRoot}/scripts`;
     } else {
       // Fallback to home directory
       const homeToolsDir = getUserLootboxToolsDir();
       if (await exists(homeToolsDir)) {
         lootboxRoot = dirname(homeToolsDir);
         toolsDir = homeToolsDir;
+        workflowsDir = getUserLootboxWorkflowsDir();
+        scriptsDir = getUserLootboxScriptsDir();
       } else {
         // Neither exists - show error and exit
         console.error("\n❌ No lootbox directory found!");
@@ -84,6 +100,8 @@ export const get_config = async (): Promise<ResolvedConfig> => {
   return {
     lootbox_root: lootboxRoot,
     tools_dir: toolsDir,
+    workflows_dir: workflowsDir,
+    scripts_dir: scriptsDir,
     port: port,
     lootbox_data_dir: lootboxDataDir,
     mcp_servers: mcpServers,
