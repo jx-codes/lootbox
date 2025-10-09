@@ -1,4 +1,4 @@
-# Lootbox
+# Lootbox - Code Mode for LLMs
 
 Code mode doesn't replace MCP - it orchestrates it.
 
