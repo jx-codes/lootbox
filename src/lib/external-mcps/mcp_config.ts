@@ -25,12 +25,6 @@ interface McpServerConfigHttp extends BaseConfig {
 
 export type McpServerConfig = McpServerConfigStdio | McpServerConfigHttp;
 
-export interface McpServerConfig {
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
-}
-
 /**
  * Sanitize server name to be a valid identifier
  * Replaces hyphens and other invalid characters with underscores
