@@ -1,5 +1,30 @@
 // MCP server configuration management
 
+/**
+  McpServerConfig: add supports to all transports
+**/
+interface McpServerConfigBase {
+  transport?: "stdio" | "streamable_http" | "sse";
+}
+
+interface McpServerConfigStdio extends BaseConfig {
+  command: string;
+  args: string[];
+  transport?: "stdio";
+  url?: never;
+  headers?: never;
+}
+
+interface McpServerConfigHttp extends BaseConfig {
+  url: string;
+  transport: "streamable_http" | "sse";
+  headers?: Record<string, string>[];
+  command?: never;
+  args?: never;
+}
+
+export type McpServerConfig = McpServerConfigStdio | McpServerConfigHttp;
+
 export interface McpServerConfig {
   command: string;
   args: string[];
