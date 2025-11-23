@@ -10,6 +10,7 @@ interface McpServerConfigBase {
 interface McpServerConfigStdio extends BaseConfig {
   command: string;
   args: string[];
+  env?: Record<string, string>;
   transport?: "stdio";
   url?: never;
   headers?: never;
