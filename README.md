@@ -1,6 +1,7 @@
 ## Shameless Promo
 https://ui.jmcodes.tech/ 
-Vibe coding a project? Start with production ready UI blocks. $100 Lifetime license for the first 500 customers.
+
+Starting a new project? Start with production ready UI blocks. $100 Lifetime license for the first 500 customers.
 
 # Lootbox - Code Mode for LLMs
 
