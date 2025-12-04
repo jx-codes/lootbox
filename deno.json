@@ -41,6 +41,6 @@
     "ts-morph": "npm:ts-morph@^23.0.0",
     "zod": "npm:zod@^4.1.11",
     "pothos": "https://esm.sh/@pothos/core@3.21.0",
-    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.0.0"
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.22.0"
   }
 }

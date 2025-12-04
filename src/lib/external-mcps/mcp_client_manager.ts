@@ -2,6 +2,8 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js"; 
 import type { McpServerConfig } from "./mcp_config.ts";
 import { VERSION } from "../../version.ts";
 
@@ -52,14 +54,22 @@ export class McpClientManager {
     try {
       console.error(`Connecting to MCP server: ${serverName}...`);
 
-      const transport = new StdioClientTransport({
-        command: config.command,
-        args: config.args,
-        env: {
-          ...Deno.env.toObject(),
-          ...config.env,
-        },
-      });
+      const transports = {
+        stdio: () =>
+          new StdioClientTransport({
+            command: config.command,
+            args: config.args,
+            env: { ...Deno.env.toObject(), ...config.env },
+          }),
+        streamable_http: () =>
+          new StreamableHTTPClientTransport(new URL(config.url)),
+        sse: () => new SSEClientTransport(new URL(config.url)),
+      };
+
+      const transport = transports[config.transport]?.() ??
+        (() => {
+          throw new Error("Invalid MCP server config.");
+        })();
 
       const client = new Client(
         {
