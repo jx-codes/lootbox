@@ -107,7 +107,7 @@ export class McpSchemaFetcher {
         return [];
       }
 
-      return response.resources.map((resource) => ({
+      return response.resources.map((resource: any) => ({
         name: this.sanitizeIdentifier(resource.name),
         originalName: resource.name,
         description: resource.description,

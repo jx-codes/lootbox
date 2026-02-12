@@ -54,22 +54,20 @@ export class McpClientManager {
     try {
       console.error(`Connecting to MCP server: ${serverName}...`);
 
-      const transports = {
-        stdio: () =>
-          new StdioClientTransport({
-            command: config.command,
-            args: config.args,
-            env: { ...Deno.env.toObject(), ...config.env },
-          }),
-        streamable_http: () =>
-          new StreamableHTTPClientTransport(new URL(config.url)),
-        sse: () => new SSEClientTransport(new URL(config.url)),
-      };
-
-      const transport = transports[config.transport]?.() ??
-        (() => {
-          throw new Error("Invalid MCP server config.");
-        })();
+      let transport;
+      if (config.transport === "stdio" || !config.transport) {
+        transport = new StdioClientTransport({
+          command: config.command,
+          args: config.args,
+          env: { ...Deno.env.toObject(), ...config.env },
+        });
+      } else if (config.transport === "streamable_http") {
+        transport = new StreamableHTTPClientTransport(new URL(config.url));
+      } else if (config.transport === "sse") {
+        transport = new SSEClientTransport(new URL(config.url));
+      } else {
+        throw new Error(`Invalid transport: ${(config as any).transport}`);
+      }
 
       const client = new Client(
         {
