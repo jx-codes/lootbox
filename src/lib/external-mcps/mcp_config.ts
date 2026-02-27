@@ -7,7 +7,7 @@ interface McpServerConfigBase {
   transport?: "stdio" | "streamable_http" | "sse";
 }
 
-interface McpServerConfigStdio extends BaseConfig {
+interface McpServerConfigStdio extends McpServerConfigBase {
   command: string;
   args: string[];
   env?: Record<string, string>;
@@ -16,7 +16,7 @@ interface McpServerConfigStdio extends BaseConfig {
   headers?: never;
 }
 
-interface McpServerConfigHttp extends BaseConfig {
+interface McpServerConfigHttp extends McpServerConfigBase {
   url: string;
   transport: "streamable_http" | "sse";
   headers?: Record<string, string>[];
